@@ -15,21 +15,23 @@ import { CarouselModule } from 'ngx-bootstrap/carousel';
   template: `
    <carousel>
   <slide>
-    <a href="#" target="_blank"><img src="assets/images/carousel/1.jpg" alt="first slide" style="display: block; width: 100%;"></a>
+    <a href="#" target="_blank" class="carouselimg"><img src="assets/images/carousel/1.jpg" alt="first slide" style="display: block; width: 100%; max-height:200px;"></a>
   </slide>
   <slide>
-    <a href="#" target="_blank"><img src="assets/images/carousel/2.jpg" alt="second slide" style="display: block; width: 100%;"></a>
+    <a href="#" target="_blank" class="carouselimg"><img src="assets/images/carousel/2.jpg" alt="second slide" style="display: block; width: 100%; max-height:200px;"></a>
   </slide>
   <slide>
-    <a href="#" target="_blank"><img src="assets/images/carousel/3.jpg" alt="third slide" style="display: block; width: 100%;"></a>
+    <a href="#" target="_blank" class="carouselimg"><img src="assets/images/carousel/3.jpg" alt="third slide" style="display: block; width: 100%; max-height:200px;"></a>
   </slide>
 </carousel>
 <br/>
 
 
-    <div class="loancalcicon" id="loancalcid" onClick="showpopup1()">
-	<img src="assets/images/calcicon.jpg">
-	
+ <div class="loancalcicon" id="loancalcid" onClick="showpopup1()">
+	    <img src="assets/images/calcicon.jpg">
+  </div>
+   <div class="loancalcicon" id="wtsapshareid" onClick="wtsapsharehandle()" style="top:60%">
+	    <img src="assets/images/whatsapicon.png">
   </div>
   <div class="popup" id="popupid1" >
 	  <div class="closeicon popupody" id="closeiconid">
@@ -774,6 +776,13 @@ body {
   letter-spacing: -1px;
 }
 
+.carouselimg img{
+transition: transform .2s;
+}
+
+.carouselimg img:hover{
+transform: scale(1.2); 
+}
 
 /* RESPONSIVE CSS
 -------------------------------------------------- */

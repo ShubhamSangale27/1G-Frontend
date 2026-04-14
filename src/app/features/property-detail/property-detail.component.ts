@@ -459,14 +459,12 @@ interface SiteVisitDto {
       transform: scale(1.05);
     }
     .video-grid {
-      margin-top: 1rem;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 0.5rem;
     }
     .video-item {
       border: 1px solid var(--border);
-      border-radius: var(--radius);
       overflow: hidden;
       background: #000;
     }

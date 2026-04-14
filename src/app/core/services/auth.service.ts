@@ -52,16 +52,7 @@ export class AuthService {
           this.router.navigate(['/dashboard']);
         }, 0);
       },
-      error: (err) => {
-        const message = err.error?.message || 'Login failed';
-        setTimeout(() => {
-          if (typeof message === 'string' && message.toLowerCase().includes('suspended user')) {
-            this.toast.error('Suspended user: your account is inactive. Please contact admin.');
-          } else {
-            this.toast.error(message);
-          }
-        }, 0);
-      },
+      error: () => {},
     });
   }
 
@@ -74,9 +65,7 @@ export class AuthService {
           this.router.navigate(['/verify-otp']);
         }, 0);
       },
-      error: (err) => {
-        setTimeout(() => this.toast.error(err.error?.message || 'Signup failed'), 0);
-      },
+      error: () => {},
     });
   }
 

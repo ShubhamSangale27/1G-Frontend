@@ -8,6 +8,7 @@ import { ConfigService } from '../../core/services/config.service';
 import { Property, PageResponse } from '../../core/models/property.model';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { ToastrService } from 'ngx-toastr';
+import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 
 interface SiteVisit {
   id: number;
@@ -154,7 +155,7 @@ interface Alert {
               </div>
               <div class="properties-list" *ngIf="recentProperties.length && !loadingProperties">
                 <div class="property-item" *ngFor="let p of recentProperties">
-                  <div class="property-thumb" [style.backgroundImage]="'url(' + resolveImageUrl(p.images?.[0]?.imageUrl) + ')'"></div>
+                  <div class="property-thumb" [style.backgroundImage]="'url(' + resolveImageUrl(firstImageUrl(p)) + ')'"></div>
                   <div class="property-info">
                     <div class="property-title">{{ p.title }}</div>
                     <div class="property-meta">
@@ -554,9 +555,13 @@ export class DashboardComponent implements OnInit {
 
   resolveImageUrl(url: string | undefined): string {
     if (!url) return 'https://placehold.co/100';
-    if (url.startsWith('http')) return url;
-    const base = this.config.apiUrl.replace(/\/$/, '');
-    return base + (url.startsWith('/') ? url : '/' + url);
+    return resolvePropertyImageUrl(url, this.config.apiUrl);
+  }
+
+  firstImageUrl(p: Property): string | undefined {
+    const media = p.images || [];
+    const image = media.find(m => !m.mediaType || m.mediaType === 'IMAGE');
+    return image?.imageUrl;
   }
 
   ngOnInit() {

@@ -13,6 +13,10 @@ function extractGoogleDriveFileId(url: string): string | null {
   return null;
 }
 
+export function isGoogleDriveUrl(url: string | undefined): boolean {
+  return !!extractGoogleDriveFileId(url || '');
+}
+
 /**
  * Convert Google Drive file view/share link to a direct image URL so <img> can load it.
  * As of 2024, uc?export=view often returns 403. The thumbnail API works for public files:
@@ -39,4 +43,21 @@ export function resolvePropertyImageUrl(url: string | undefined, baseUrl?: strin
   if (direct.startsWith('http://') || direct.startsWith('https://')) return direct;
   const base = (baseUrl || '').replace(/\/$/, '');
   return base ? (direct.startsWith('/') ? base + direct : base + '/' + direct) : direct;
+}
+
+/**
+ * Resolve a non-image media URL (for videos).
+ * For Google Drive links, returns preview/embed URL that can be used in an iframe.
+ */
+export function resolvePropertyVideoUrl(url: string | undefined, baseUrl?: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const u = url.trim();
+  if (!u) return '';
+  const fileId = extractGoogleDriveFileId(u);
+  if (fileId) {
+    return `https://drive.google.com/file/d/${fileId}/preview`;
+  }
+  if (u.startsWith('http://') || u.startsWith('https://')) return u;
+  const base = (baseUrl || '').replace(/\/$/, '');
+  return base ? (u.startsWith('/') ? base + u : base + '/' + u) : u;
 }

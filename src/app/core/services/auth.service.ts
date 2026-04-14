@@ -11,6 +11,7 @@ export interface User {
   role: string;
   emailVerified: boolean;
   mobileVerified: boolean;
+  active?: boolean;
 }
 
 export interface AuthResponse {
@@ -52,7 +53,14 @@ export class AuthService {
         }, 0);
       },
       error: (err) => {
-        setTimeout(() => this.toast.error(err.error?.message || 'Login failed'), 0);
+        const message = err.error?.message || 'Login failed';
+        setTimeout(() => {
+          if (typeof message === 'string' && message.toLowerCase().includes('suspended user')) {
+            this.toast.error('Suspended user: your account is inactive. Please contact admin.');
+          } else {
+            this.toast.error(message);
+          }
+        }, 0);
       },
     });
   }

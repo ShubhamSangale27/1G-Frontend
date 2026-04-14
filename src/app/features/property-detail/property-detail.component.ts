@@ -9,7 +9,7 @@ import { Property } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { PropertyMapComponent } from '../../shared/property-map/property-map.component';
-import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import { resolvePropertyImageUrl, resolvePropertyVideoUrl, isGoogleDriveUrl } from '../../core/utils/image-url.util';
 
 /** User's active site visit for this property (PENDING_ASSIGNMENT or ASSIGNED). Used to show Reschedule instead of Book. */
 interface SiteVisitDto {
@@ -67,19 +67,26 @@ interface SiteVisitDto {
 
         <div class="gallery-section">
           <div class="main-image">
+            <span class="verified-badge">✔ Verified</span>
             <img [src]="currentImageFullUrl" [alt]="property.title" (click)="openZoom(currentImageFullUrl)" class="zoomable" />
-            <button class="gallery-nav prev" (click)="prevImage(); $event.stopPropagation()" *ngIf="property.images && property.images.length > 1">‹</button>
-            <button class="gallery-nav next" (click)="nextImage(); $event.stopPropagation()" *ngIf="property.images && property.images.length > 1">›</button>
-            <div class="image-counter" *ngIf="property.images && property.images.length > 1">
-              {{ currentIndex + 1 }} / {{ property.images.length }}
+            <button class="gallery-nav prev" (click)="prevImage(); $event.stopPropagation()" *ngIf="imageMedia.length > 1">‹</button>
+            <button class="gallery-nav next" (click)="nextImage(); $event.stopPropagation()" *ngIf="imageMedia.length > 1">›</button>
+            <div class="image-counter" *ngIf="imageMedia.length > 1">
+              {{ currentIndex + 1 }} / {{ imageMedia.length }}
             </div>
           </div>
-          <div class="thumbnail-grid" *ngIf="property.images && property.images.length > 1">
-            <button *ngFor="let img of property.images; let i = index" 
+          <div class="thumbnail-grid" *ngIf="imageMedia.length > 1">
+            <button *ngFor="let img of imageMedia; let i = index" 
                     [class.active]="currentIndex === i"
                     (click)="currentIndex = i; $event.stopPropagation()"
                     (dblclick)="openZoom(imageFullUrl(img.imageUrl))"
                     [style.backgroundImage]="'url(' + imageFullUrl(img.imageUrl) + ')'"></button>
+          </div>
+          <div class="video-grid" *ngIf="videoMedia.length">
+            <div class="video-item" *ngFor="let v of videoMedia">
+              <iframe *ngIf="isDriveVideo(v.imageUrl)" [src]="videoFullUrl(v.imageUrl)" allow="autoplay" loading="lazy"></iframe>
+              <video *ngIf="!isDriveVideo(v.imageUrl)" [src]="videoFullUrl(v.imageUrl)" controls preload="metadata"></video>
+            </div>
           </div>
         </div>
         <div class="zoom-overlay" *ngIf="zoomOpen" (click)="closeZoom()">
@@ -417,6 +424,21 @@ interface SiteVisitDto {
       font-size: 0.875rem;
       backdrop-filter: blur(4px);
     }
+    .verified-badge {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      z-index: 3;
+      background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+      color: #fff;
+      padding: 0.4rem 0.8rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 700;
+      box-shadow: var(--shadow-lg);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
     .thumbnail-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -437,6 +459,26 @@ interface SiteVisitDto {
       opacity: 1;
       border-color: var(--primary);
       transform: scale(1.05);
+    }
+    .video-grid {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 0.75rem;
+    }
+    .video-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #000;
+      min-height: 180px;
+    }
+    .video-item video,
+    .video-item iframe {
+      width: 100%;
+      height: 100%;
+      min-height: 180px;
+      border: 0;
     }
     .property-content {
       display: grid;
@@ -774,6 +816,14 @@ export class PropertyDetailComponent implements OnInit {
     return resolvePropertyImageUrl(url, this.config.apiUrl);
   }
 
+  videoFullUrl(url: string): string {
+    return resolvePropertyVideoUrl(url, this.config.apiUrl);
+  }
+
+  isDriveVideo(url: string): boolean {
+    return isGoogleDriveUrl(url);
+  }
+
   openZoom(url: string) {
     if (!url) return;
     this.zoomUrl = url;
@@ -842,8 +892,16 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   get currentImage(): string {
-    if (!this.property?.images?.length) return 'https://placehold.co/1200x675?text=Property';
-    return this.property.images[this.currentIndex]?.imageUrl || this.property.images[0].imageUrl;
+    if (!this.imageMedia.length) return 'https://placehold.co/1200x675?text=Property';
+    return this.imageMedia[this.currentIndex]?.imageUrl || this.imageMedia[0].imageUrl;
+  }
+
+  get imageMedia() {
+    return (this.property?.images || []).filter(i => !i.mediaType || i.mediaType === 'IMAGE');
+  }
+
+  get videoMedia() {
+    return (this.property?.images || []).filter(i => i.mediaType === 'VIDEO');
   }
 
   get amenitiesList(): string[] {
@@ -852,13 +910,13 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   prevImage() {
-    if (!this.property?.images?.length) return;
-    this.currentIndex = (this.currentIndex - 1 + this.property.images.length) % this.property.images.length;
+    if (!this.imageMedia.length) return;
+    this.currentIndex = (this.currentIndex - 1 + this.imageMedia.length) % this.imageMedia.length;
   }
 
   nextImage() {
-    if (!this.property?.images?.length) return;
-    this.currentIndex = (this.currentIndex + 1) % this.property.images.length;
+    if (!this.imageMedia.length) return;
+    this.currentIndex = (this.currentIndex + 1) % this.imageMedia.length;
   }
 
   bookVisit() {

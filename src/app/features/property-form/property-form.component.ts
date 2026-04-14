@@ -10,7 +10,7 @@ import { Property } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { getStateNames, getCitiesForState } from '../../core/data/indian-locations';
 import { PropertyMapComponent } from '../../shared/property-map/property-map.component';
-import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import { resolvePropertyImageUrl, resolvePropertyVideoUrl } from '../../core/utils/image-url.util';
 
 @Component({
   selector: 'app-property-form',
@@ -157,24 +157,34 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
           </div>
 
           <div class="form-section">
-            <h3>Property Images</h3>
+            <h3>Property Media (Images/Videos)</h3>
             <div class="images-section">
               <div class="add-url-row">
                 <div class="form-group add-url-input">
-                  <label>Image URL</label>
-                  <input type="url" [(ngModel)]="newImageUrl" [ngModelOptions]="{standalone: true}" placeholder="https://example.com/image.jpg" (keydown.enter)="addImageByUrl(); $event.preventDefault()" />
+                  <label>Media URL</label>
+                  <input type="url" [(ngModel)]="newMediaUrl" [ngModelOptions]="{standalone: true}" placeholder="https://example.com/media.jpg or .mp4" (keydown.enter)="addMediaByUrl(); $event.preventDefault()" />
                 </div>
-                <button type="button" class="btn btn-primary add-url-btn" (click)="addImageByUrl()">Add URL</button>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label>Type</label>
+                  <select [(ngModel)]="newMediaType" [ngModelOptions]="{standalone: true}">
+                    <option value="IMAGE">Image</option>
+                    <option value="VIDEO">Video</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-primary add-url-btn" (click)="addMediaByUrl()">Add URL</button>
               </div>
-              <small class="images-hint">Paste an image URL above and click Add URL. For Google Drive links, set the file sharing to &quot;Anyone with the link&quot; so the image can display.</small>
-              <div class="image-preview-row" *ngFor="let url of imageUrls; let i = index">
-                <img *ngIf="url" [src]="imagePreviewUrl(url)" alt="Preview" class="image-preview" (error)="onImageError($event)" />
-                <span *ngIf="!url" class="preview-placeholder">No image</span>
+              <small class="images-hint">Paste image/video URLs and click Add URL. For Google Drive links, set sharing to &quot;Anyone with the link&quot;. Drive videos are played via embedded preview.</small>
+              <div class="image-preview-row" *ngFor="let media of mediaItems; let i = index">
+                <img *ngIf="media.mediaType === 'IMAGE'" [src]="imagePreviewUrl(media.imageUrl)" alt="Preview" class="image-preview" (error)="onImageError($event)" />
+                <div *ngIf="media.mediaType === 'VIDEO'" class="video-preview-wrap">
+                  <video *ngIf="!isGoogleDriveMedia(media.imageUrl)" [src]="videoPreviewUrl(media.imageUrl)" class="video-preview" controls preload="metadata"></video>
+                  <iframe *ngIf="isGoogleDriveMedia(media.imageUrl)" [src]="videoPreviewUrl(media.imageUrl)" class="video-preview" allow="autoplay" loading="lazy"></iframe>
+                </div>
                 <div class="image-actions">
-                  <button type="button" class="btn btn-outline btn-sm" (click)="removeImage(i)">Remove</button>
+                  <span class="badge badge-type-inline">{{ media.mediaType }}</span>
+                  <button type="button" class="btn btn-outline btn-sm" (click)="removeMedia(i)">Remove</button>
                 </div>
               </div>
-              <button type="button" class="btn btn-outline" (click)="addImageSlot()">+ Add another image slot</button>
             </div>
           </div>
 
@@ -334,6 +344,28 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
     .image-actions {
       display: flex;
       gap: 0.5rem;
+      align-items: center;
+    }
+    .video-preview-wrap {
+      width: 120px;
+      height: 80px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .video-preview {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      object-fit: cover;
+    }
+    .badge-type-inline {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
     }
     .form-actions {
       display: flex;
@@ -358,8 +390,9 @@ export class PropertyFormComponent implements OnInit {
   isEdit = false;
   propertyId: number | null = null;
   submitting = false;
-  imageUrls: string[] = [];
-  newImageUrl = '';
+  mediaItems: { imageUrl: string; mediaType: 'IMAGE' | 'VIDEO' }[] = [];
+  newMediaUrl = '';
+  newMediaType: 'IMAGE' | 'VIDEO' = 'IMAGE';
   stateNames = getStateNames();
   citiesForState: string[] = [];
 
@@ -399,7 +432,7 @@ export class PropertyFormComponent implements OnInit {
       this.propertyId = +id;
       this.loadProperty();
     } else {
-      this.imageUrls = [''];
+      this.mediaItems = [];
     }
     this.updateCitiesForState();
   }
@@ -442,9 +475,12 @@ export class PropertyFormComponent implements OnInit {
         });
         this.updateCitiesForState();
         if (p.images && p.images.length) {
-          this.imageUrls = p.images.map(img => img.imageUrl);
+          this.mediaItems = p.images.map(img => ({
+            imageUrl: img.imageUrl,
+            mediaType: img.mediaType || 'IMAGE',
+          }));
         } else {
-          this.imageUrls = [''];
+          this.mediaItems = [];
         }
       },
       error: () => this.toast.error('Failed to load property'),
@@ -455,37 +491,40 @@ export class PropertyFormComponent implements OnInit {
     return resolvePropertyImageUrl(url, this.config.apiUrl);
   }
 
+  videoPreviewUrl(url: string): string {
+    return resolvePropertyVideoUrl(url, this.config.apiUrl);
+  }
+
+  isGoogleDriveMedia(url: string): boolean {
+    return /drive\.google\.com/i.test(url || '');
+  }
+
   onImageError(event: Event) {
     const img = event.target as HTMLImageElement;
     img.src = 'https://placehold.co/160x120?text=Image+unavailable';
     img.onerror = null;
   }
 
-  addImageByUrl() {
-    const url = (this.newImageUrl || '').trim();
+  addMediaByUrl() {
+    const url = (this.newMediaUrl || '').trim();
     if (!url) {
-      this.toast.warning('Enter an image URL');
+      this.toast.warning('Enter a media URL');
       return;
     }
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       this.toast.warning('URL must start with http:// or https://');
       return;
     }
-    this.imageUrls.push(url);
-    this.newImageUrl = '';
-    this.toast.success('Image URL added');
+    this.mediaItems.push({
+      imageUrl: url,
+      mediaType: this.newMediaType,
+    });
+    this.newMediaUrl = '';
+    this.toast.success(`${this.newMediaType === 'VIDEO' ? 'Video' : 'Image'} URL added`);
   }
 
-  addImageSlot() {
-    this.imageUrls.push('');
-  }
-
-  addImage() {
-    this.imageUrls.push('');
-  }
-
-  removeImage(index: number) {
-    this.imageUrls.splice(index, 1);
+  removeMedia(index: number) {
+    this.mediaItems.splice(index, 1);
   }
 
   onSubmit() {
@@ -496,10 +535,13 @@ export class PropertyFormComponent implements OnInit {
 
     this.submitting = true;
     const formValue = this.form.value;
-    const images = this.imageUrls.filter(url => (url || '').trim()).map((url, idx) => ({
-      imageUrl: (url || '').trim(),
-      displayOrder: idx,
-    }));
+    const images = this.mediaItems
+      .filter(m => (m.imageUrl || '').trim())
+      .map((m, idx) => ({
+        imageUrl: (m.imageUrl || '').trim(),
+        mediaType: m.mediaType,
+        displayOrder: idx,
+      }));
 
     const payload = {
       ...formValue,

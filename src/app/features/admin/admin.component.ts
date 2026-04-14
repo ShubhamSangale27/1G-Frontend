@@ -33,6 +33,7 @@ interface UserRow {
   fullName: string;
   mobile: string;
   role: string;
+  active?: boolean;
 }
 
 @Component({
@@ -200,6 +201,53 @@ interface UserRow {
               </div>
               <p *ngIf="!loadingModalUsers && !modalError && !modalUsers.length" class="modal-status modal-empty">{{ modalEmptyMessage }}</p>
             </div>
+          </div>
+        </div>
+
+        <div class="pending-section card user-management-section">
+          <div class="section-header">
+            <h2>User Management</h2>
+            <span class="badge badge-info">{{ allUsers.length }} Users</span>
+          </div>
+          <div class="visits-table-wrap" *ngIf="allUsers.length && !loadingUsers">
+            <table class="visits-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let u of allUsers">
+                  <td>{{ u.fullName }}</td>
+                  <td>{{ u.email }}</td>
+                  <td>{{ u.role }}</td>
+                  <td>
+                    <span class="status-badge" [class.status-completed]="u.active" [class.status-rejected]="u.active === false">
+                      {{ u.active ? 'ACTIVE' : 'SUSPENDED' }}
+                    </span>
+                  </td>
+                  <td>
+                    <button type="button" class="btn btn-outline btn-sm"
+                            (click)="toggleUserStatus(u)"
+                            [disabled]="updatingUserStatus[u.id] || deletingUser[u.id] || u.role === 'ADMIN'">
+                      {{ u.active ? 'Suspend' : 'Activate' }}
+                    </button>
+                    <button type="button" class="btn btn-outline btn-sm btn-danger"
+                            (click)="deleteUser(u)"
+                            [disabled]="deletingUser[u.id] || u.role === 'ADMIN'">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="loading-state" *ngIf="loadingUsers">
+            <p>Loading users...</p>
           </div>
         </div>
 
@@ -550,6 +598,7 @@ interface UserRow {
     .status-assigned { background: #dbeafe; color: #1e40af; }
     .status-completed { background: #d1fae5; color: #065f46; }
     .status-cancelled { background: #f3f4f6; color: #6b7280; }
+    .status-rejected { background: #fee2e2; color: #991b1b; }
     .form-select.sm { min-width: 140px; }
     .pagination-row {
       display: flex;
@@ -621,6 +670,10 @@ export class AdminComponent implements OnInit {
   loadingModalUsers = false;
   modalError = '';
   modalEmptyMessage = '';
+  allUsers: UserRow[] = [];
+  loadingUsers = false;
+  updatingUserStatus: Record<number, boolean> = {};
+  deletingUser: Record<number, boolean> = {};
 
   constructor(private api: ApiService, private toast: ToastrService, private cdr: ChangeDetectorRef, private ngZone: NgZone) {}
 
@@ -646,6 +699,7 @@ export class AdminComponent implements OnInit {
     this.loadPendingVisits();
     this.loadAllVisits();
     this.loadAllProperties();
+    this.loadAllUsers();
   }
 
   isNewProperty(createdAt: string | undefined): boolean {
@@ -796,6 +850,54 @@ export class AdminComponent implements OnInit {
     this.modalUsers = [];
     this.modalError = '';
     this.modalEmptyMessage = '';
+  }
+
+  loadAllUsers() {
+    this.loadingUsers = true;
+    this.api.get<UserRow[]>('/admin/users').subscribe({
+      next: (users) => {
+        this.allUsers = users || [];
+        this.loadingUsers = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingUsers = false;
+        this.toast.error('Failed to load users');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  toggleUserStatus(user: UserRow) {
+    const nextActive = !user.active;
+    this.updatingUserStatus[user.id] = true;
+    this.api.put<UserRow>('/admin/users/' + user.id + '/status?active=' + nextActive, {}).subscribe({
+      next: (updated) => {
+        this.updatingUserStatus[user.id] = false;
+        user.active = updated.active;
+        this.toast.success(updated.active ? 'User activated' : 'User suspended');
+      },
+      error: (e) => {
+        this.updatingUserStatus[user.id] = false;
+        this.toast.error(e.error?.message || 'Failed to update status');
+      },
+    });
+  }
+
+  deleteUser(user: UserRow) {
+    if (!confirm(`Delete user ${user.fullName}? This also deletes properties and related data.`)) return;
+    this.deletingUser[user.id] = true;
+    this.api.delete('/admin/users/' + user.id).subscribe({
+      next: () => {
+        this.deletingUser[user.id] = false;
+        this.allUsers = this.allUsers.filter(u => u.id !== user.id);
+        this.toast.success('User deleted');
+      },
+      error: (e) => {
+        this.deletingUser[user.id] = false;
+        this.toast.error(e.error?.message || 'Failed to delete user');
+      },
+    });
   }
 
   loadAllVisits() {

@@ -15,6 +15,7 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
         <img [src]="imgUrl" [alt]="property.title" (error)="onImgError($event)" />
         <div class="overlay-badges">
           <span class="badge badge-listing">{{ property.listingType }}</span>
+          <span class="badge badge-verified">✔ Verified</span>
           <span class="badge badge-premium" *ngIf="property.isPremium">⭐ Premium</span>
         </div>
         <div class="img-count" *ngIf="property.images && property.images.length > 1">
@@ -105,6 +106,17 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
       font-size: 0.75rem;
       font-weight: 700;
       box-shadow: var(--shadow-lg);
+    }
+    .badge-verified {
+      background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+      color: #fff;
+      padding: 0.4375rem 0.875rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 700;
+      box-shadow: var(--shadow-lg);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .img-count {
       position: absolute;
@@ -204,8 +216,8 @@ export class PropertyCardComponent {
   constructor(private config: ConfigService) {}
 
   get imgUrl(): string {
-    const imgs = this.property.images;
-    if (imgs?.length) return resolvePropertyImageUrl(imgs[0].imageUrl, this.config.apiUrl);
+    const imgs = (this.property.images || []).filter(i => !i.mediaType || i.mediaType === 'IMAGE');
+    if (imgs.length) return resolvePropertyImageUrl(imgs[0].imageUrl, this.config.apiUrl);
     return 'https://placehold.co/400x250?text=Property';
   }
 

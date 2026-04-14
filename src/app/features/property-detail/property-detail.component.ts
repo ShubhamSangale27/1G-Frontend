@@ -431,13 +431,11 @@ interface SiteVisitDto {
       z-index: 3;
       background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
       color: #fff;
-      padding: 0.4rem 0.8rem;
+      padding: 0.35rem 0.7rem;
       border-radius: var(--radius-sm);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: 700;
-      box-shadow: var(--shadow-lg);
       text-transform: uppercase;
-      letter-spacing: 0.4px;
     }
     .thumbnail-grid {
       display: grid;
@@ -464,21 +462,18 @@ interface SiteVisitDto {
       margin-top: 1rem;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
     .video-item {
       border: 1px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
       background: #000;
-      min-height: 180px;
     }
     .video-item video,
     .video-item iframe {
       width: 100%;
-      height: 100%;
       min-height: 180px;
-      border: 0;
     }
     .property-content {
       display: grid;

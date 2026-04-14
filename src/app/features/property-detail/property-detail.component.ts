@@ -926,6 +926,11 @@ export class PropertyDetailComponent implements OnInit {
 
   submitVisit() {
     if (!this.property || !this.visitDate) return;
+    if (this.myVisitForProperty) {
+      this.toast.info('You already have an active site visit request for this property.');
+      this.showBookForm = false;
+      return;
+    }
     const scheduledAt = new Date(this.visitDate).toISOString();
     this.api.post<SiteVisitDto>('/sitevisits', { propertyId: this.property.id, scheduledAt, userNotes: this.visitNotes }).subscribe({
       next: (v) => {

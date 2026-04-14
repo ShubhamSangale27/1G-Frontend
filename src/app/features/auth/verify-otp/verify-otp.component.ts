@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -40,6 +40,18 @@ const PENDING_VERIFY_KEY = 'pendingVerification';
                 }
               </div>
               <p class="hint">We sent an OTP to your mobile via MSG91. Enter it above to verify.</p>
+              <div class="resend-row">
+                <button type="button" class="btn btn-outline btn-sm" (click)="resendOtp()" [disabled]="!canResend || resending">
+                  {{ resending ? 'Resending...' : 'Resend OTP' }}
+                </button>
+                <span class="resend-hint" *ngIf="!canResend && resendCountdownSeconds > 0">
+                  Resend available in {{ formatCountdown(resendCountdownSeconds) }}
+                </span>
+                <span class="resend-hint" *ngIf="resendAttemptsRemaining <= 0">
+                  Daily resend limit reached. Try again after 24 hours.
+                </span>
+              </div>
+              <p class="hint">Resends used today: {{ resendAttemptsUsed }} / {{ maxResendAttemptsPerDay }}</p>
               <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="form.invalid || submitting">
                 {{ submitting ? 'Verifying...' : 'Verify & Continue' }}
               </button>
@@ -69,6 +81,8 @@ const PENDING_VERIFY_KEY = 'pendingVerification';
     .form-group input.readonly { background: var(--bg); color: var(--text-muted); }
     .form-group .error { color: var(--danger, #dc2626); font-size: 0.875rem; margin-top: 0.25rem; display: block; }
     .hint { font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1rem; background: var(--bg); padding: 0.75rem; border-radius: var(--radius); }
+    .resend-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .resend-hint { font-size: 0.8125rem; color: var(--text-muted); }
     .btn-block { width: 100%; margin-top: 0.5rem; }
     .message { text-align: center; color: var(--text-muted); }
     .message a { color: var(--primary); font-weight: 600; }
@@ -77,13 +91,20 @@ const PENDING_VERIFY_KEY = 'pendingVerification';
     .auth-footer a { color: var(--primary); font-weight: 600; }
   `],
 })
-export class VerifyOtpComponent implements OnInit {
+export class VerifyOtpComponent implements OnInit, OnDestroy {
   email: string | null = null;
   mobile: string | null = null;
+  resendAttemptsUsed = 0;
+  resendAttemptsRemaining = 3;
+  maxResendAttemptsPerDay = 3;
+  resendAvailableAt: Date | null = null;
+  resendCountdownSeconds = 0;
+  private resendTimerId: ReturnType<typeof setInterval> | null = null;
   form = this.fb.nonNullable.group({
     mobileOtp: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6), Validators.pattern(/^\d+$/)]],
   });
   submitting = false;
+  resending = false;
 
   constructor(
     private fb: FormBuilder,
@@ -97,13 +118,22 @@ export class VerifyOtpComponent implements OnInit {
     const pending = sessionStorage.getItem(PENDING_VERIFY_KEY);
     if (pending) {
       try {
-        const { email, mobile } = JSON.parse(pending);
+        const { email, mobile, resendAttemptsUsed, resendAttemptsRemaining, resendAvailableAt, maxResendAttemptsPerDay } = JSON.parse(pending);
         this.email = email ?? null;
         this.mobile = mobile ?? null;
+        this.resendAttemptsUsed = Number.isFinite(resendAttemptsUsed) ? resendAttemptsUsed : 0;
+        this.resendAttemptsRemaining = Number.isFinite(resendAttemptsRemaining) ? resendAttemptsRemaining : 3;
+        this.maxResendAttemptsPerDay = Number.isFinite(maxResendAttemptsPerDay) ? maxResendAttemptsPerDay : 3;
+        this.resendAvailableAt = resendAvailableAt ? new Date(resendAvailableAt) : null;
+        this.startResendCountdown();
       } catch {
         sessionStorage.removeItem(PENDING_VERIFY_KEY);
       }
     }
+  }
+
+  ngOnDestroy(): void {
+    this.stopResendCountdown();
   }
 
   onSubmit(): void {
@@ -131,5 +161,68 @@ export class VerifyOtpComponent implements OnInit {
         }, 0);
       },
     });
+  }
+
+  get canResend(): boolean {
+    if (!this.email || !this.mobile) return false;
+    if (this.resendAttemptsRemaining <= 0) return false;
+    return this.resendCountdownSeconds <= 0;
+  }
+
+  resendOtp(): void {
+    if (!this.email || !this.mobile || !this.canResend || this.resending) return;
+    this.resending = true;
+    this.auth.resendSignupOtp(this.email, this.mobile).subscribe({
+      next: (res) => {
+        this.resending = false;
+        this.resendAttemptsUsed = res.resendAttemptsUsed ?? this.resendAttemptsUsed + 1;
+        this.resendAttemptsRemaining = res.resendAttemptsRemaining ?? Math.max(0, this.maxResendAttemptsPerDay - this.resendAttemptsUsed);
+        this.maxResendAttemptsPerDay = res.maxResendAttemptsPerDay ?? this.maxResendAttemptsPerDay;
+        this.resendAvailableAt = res.resendAvailableAt ? new Date(res.resendAvailableAt) : null;
+        sessionStorage.setItem(PENDING_VERIFY_KEY, JSON.stringify({
+          email: this.email,
+          mobile: this.mobile,
+          resendAttemptsUsed: this.resendAttemptsUsed,
+          resendAttemptsRemaining: this.resendAttemptsRemaining,
+          resendAvailableAt: this.resendAvailableAt ? this.resendAvailableAt.toISOString() : null,
+          maxResendAttemptsPerDay: this.maxResendAttemptsPerDay,
+        }));
+        this.startResendCountdown();
+        this.toast.success(res.message || 'OTP resent successfully.');
+      },
+      error: (err) => {
+        this.resending = false;
+        this.toast.error(err.error?.message || 'Unable to resend OTP right now.');
+      },
+    });
+  }
+
+  formatCountdown(totalSeconds: number): string {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+
+  private startResendCountdown(): void {
+    this.stopResendCountdown();
+    const computeSeconds = () => {
+      if (!this.resendAvailableAt) return 0;
+      const diffMs = this.resendAvailableAt.getTime() - Date.now();
+      return diffMs > 0 ? Math.ceil(diffMs / 1000) : 0;
+    };
+    this.resendCountdownSeconds = computeSeconds();
+    this.resendTimerId = setInterval(() => {
+      this.resendCountdownSeconds = computeSeconds();
+      if (this.resendCountdownSeconds <= 0) {
+        this.stopResendCountdown();
+      }
+    }, 1000);
+  }
+
+  private stopResendCountdown(): void {
+    if (this.resendTimerId) {
+      clearInterval(this.resendTimerId);
+      this.resendTimerId = null;
+    }
   }
 }

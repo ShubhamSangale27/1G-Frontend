@@ -26,6 +26,10 @@ export interface SignupResponse {
   message: string;
   email: string;
   mobile: string;
+  resendAttemptsUsed?: number;
+  resendAttemptsRemaining?: number;
+  resendAvailableAt?: string;
+  maxResendAttemptsPerDay?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -59,7 +63,14 @@ export class AuthService {
   signup(email: string, password: string, fullName: string, mobile: string) {
     return this.api.post<SignupResponse>('/auth/signup', { email, password, fullName, mobile }).subscribe({
       next: (res) => {
-        sessionStorage.setItem('pendingVerification', JSON.stringify({ email: res.email, mobile: res.mobile }));
+        sessionStorage.setItem('pendingVerification', JSON.stringify({
+          email: res.email,
+          mobile: res.mobile,
+          resendAttemptsUsed: res.resendAttemptsUsed ?? 0,
+          resendAttemptsRemaining: res.resendAttemptsRemaining ?? 3,
+          resendAvailableAt: res.resendAvailableAt ?? null,
+          maxResendAttemptsPerDay: res.maxResendAttemptsPerDay ?? 3,
+        }));
         setTimeout(() => {
           this.toast.success(res.message || 'OTP sent to your mobile. Enter it on the next screen.');
           this.router.navigate(['/verify-otp']);
@@ -67,6 +78,10 @@ export class AuthService {
       },
       error: () => {},
     });
+  }
+
+  resendSignupOtp(email: string, mobile: string) {
+    return this.api.post<SignupResponse>('/auth/resend-signup-otp', { email, mobile });
   }
 
   logout() {

@@ -163,8 +163,8 @@ interface SiteVisitDetail {
       font-size: 0.75rem;
       font-weight: 600;
     }
-    .status-assigned { background: #dbeafe; color: #1e40af; }
-    .status-completed { background: #d1fae5; color: #065f46; }
+    .status-assigned { background: var(--info-bg); color: var(--info-text); }
+    .status-completed { background: var(--success-bg); color: var(--success-text); }
     .grid-two {
       display: grid;
       grid-template-columns: 1fr 1fr;

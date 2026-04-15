@@ -207,6 +207,8 @@ import { resolvePropertyImageUrl, resolvePropertyVideoUrl } from '../../core/uti
     .form-header h1 {
       font-size: 2.5rem;
       margin-bottom: 0.5rem;
+      color: var(--text);
+      font-weight: 800;
     }
     .form-header p {
       color: var(--text-muted);
@@ -265,7 +267,7 @@ import { resolvePropertyImageUrl, resolvePropertyVideoUrl } from '../../core/uti
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
     }
     .form-group small {
       display: block;

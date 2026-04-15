@@ -35,13 +35,13 @@ import { ToastrService } from 'ngx-toastr';
   `,
   styles: [`
     .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; position: relative; background: var(--bg); }
-    .auth-background { position: absolute; inset: 0; background: var(--primary-gradient); opacity: 0.06; }
-    .auth-container { position: relative; width: 100%; max-width: 420px; }
-    .auth-card { padding: 2rem; }
+    .auth-background { position: absolute; inset: 0; background: var(--primary-gradient); opacity: 0.06; z-index: 0; }
+    .auth-container { position: relative; z-index: 1; width: 100%; max-width: 420px; }
+    .auth-card { padding: 2.5rem; border: 2px solid var(--border); box-shadow: var(--shadow-2xl); }
     .auth-header { text-align: center; margin-bottom: 1.5rem; }
     .auth-logo { font-size: 3rem; margin-bottom: 0.5rem; }
-    .auth-header h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
-    .message { text-align: center; margin-bottom: 1rem; }
+    .auth-header h1 { font-size: 1.5rem; margin: 0 0 0.5rem; color: var(--text); font-weight: 800; }
+    .message { text-align: center; margin-bottom: 1rem; color: var(--text-secondary); }
     .message.success { color: var(--success); font-weight: 500; }
     .message.error { color: var(--danger); }
     .btn { display: inline-block; margin: 0.25rem; }

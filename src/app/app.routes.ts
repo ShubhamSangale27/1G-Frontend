@@ -6,6 +6,7 @@ import { agentGuard } from './core/guards/agent.guard';
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./features/home/home.component').then(m => m.HomeComponent) },
   { path: 'search', loadComponent: () => import('./features/search/search.component').then(m => m.SearchComponent) },
+  { path: 'Search', redirectTo: 'search', pathMatch: 'full' },
   { path: 'login', loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent) },
   { path: 'signup', loadComponent: () => import('./features/auth/signup/signup.component').then(m => m.SignupComponent) },
   { path: 'verify-otp', loadComponent: () => import('./features/auth/verify-otp/verify-otp.component').then(m => m.VerifyOtpComponent) },

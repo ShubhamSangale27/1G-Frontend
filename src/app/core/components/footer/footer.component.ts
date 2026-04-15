@@ -72,10 +72,11 @@ import { CommonModule } from '@angular/common';
   `,
   styles: [`
     .footer {
-      background: var(--text);
-      color: #94a3b8;
+      background: var(--footer-bg);
+      color: var(--footer-muted);
       padding: 3rem 0 1.5rem;
       margin-top: 4rem;
+      border-top: 1px solid var(--footer-border);
     }
     .footer-grid {
       display: grid;
@@ -84,7 +85,7 @@ import { CommonModule } from '@angular/common';
       margin-bottom: 2rem;
     }
     .footer-col h4 {
-      color: white;
+      color: var(--footer-text);
       font-size: 1rem;
       margin-bottom: 1rem;
       font-weight: 600;
@@ -94,7 +95,7 @@ import { CommonModule } from '@angular/common';
       align-items: center;
       gap: 0.5rem;
       margin-bottom: 1rem;
-      color: white;
+      color: var(--footer-text);
       font-size: 1.25rem;
     }
     .logo-icon {
@@ -133,13 +134,13 @@ import { CommonModule } from '@angular/common';
       margin-bottom: 0.5rem;
     }
     .footer-col ul li a {
-      color: #94a3b8;
+      color: var(--footer-muted);
       text-decoration: none;
       font-size: 0.875rem;
       transition: var(--transition);
     }
     .footer-col ul li a:hover {
-      color: white;
+      color: var(--footer-text);
     }
     .footer-bottom {
       display: flex;
@@ -148,7 +149,7 @@ import { CommonModule } from '@angular/common';
       flex-wrap: wrap;
       gap: 1rem;
       padding-top: 2rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-top: 1px solid var(--footer-border);
       font-size: 0.875rem;
     }
     .footer-links {
@@ -158,11 +159,11 @@ import { CommonModule } from '@angular/common';
       align-items: center;
     }
     .footer-links a {
-      color: #94a3b8;
+      color: var(--footer-muted);
       text-decoration: none;
     }
     .footer-links a:hover {
-      color: white;
+      color: var(--footer-text);
     }
     @media (max-width: 1024px) {
       .footer-grid {

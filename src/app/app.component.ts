@@ -17,8 +17,10 @@ import { FooterComponent } from './core/components/footer/footer.component';
   styles: [`
     .main-content {
       min-height: calc(100vh - 140px);
-      padding-top: 1rem;
+      padding-top: 0;
+      padding-bottom: 0;
       box-sizing: border-box;
+      background: var(--bg);
     }
   `],
 })

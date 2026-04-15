@@ -108,7 +108,7 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
       box-shadow: var(--shadow-lg);
     }
     .badge-verified {
-      background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+      background: var(--verified-gradient);
       color: #fff;
       padding: 0.4375rem 0.875rem;
       border-radius: var(--radius-sm);

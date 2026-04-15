@@ -1,5 +1,5 @@
 import { Component, OnInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
@@ -48,7 +48,7 @@ interface SiteVisitDto {
               <div class="price-label">{{ property.listingType === 'RENT' ? 'per month' : 'total price' }}</div>
             </div>
             <div class="action-buttons">
-              <ng-container *ngIf="auth.user()">
+              <ng-container *ngIf="hasActiveSession()">
                 <button class="btn btn-primary btn-lg" (click)="bookVisit()" *ngIf="!myVisitForProperty">
                   📅 Book Site Visit
                 </button>
@@ -60,7 +60,7 @@ interface SiteVisitDto {
               <button class="btn btn-outline" (click)="toggleWatchlist()" *ngIf="auth.user()">
                 {{ inWatchlist ? '❤️ Liked' : '🤍 Like' }}
               </button>
-              <a routerLink="/login" class="btn btn-primary btn-lg" *ngIf="!auth.user()">Login to Book Visit</a>
+              <a routerLink="/login" class="btn btn-primary btn-lg" *ngIf="!hasActiveSession()">Login to Book Visit</a>
             </div>
           </div>
         </div>
@@ -196,7 +196,7 @@ interface SiteVisitDto {
                   <div class="owner-role">Property Owner</div>
                 </div>
               </div>
-              <ng-container *ngIf="auth.user()">
+              <ng-container *ngIf="hasActiveSession()">
                 <button class="btn btn-primary btn-block" (click)="bookVisit()" *ngIf="!myVisitForProperty">
                   📅 Book Site Visit
                 </button>
@@ -205,7 +205,7 @@ interface SiteVisitDto {
                   <button class="btn btn-primary btn-block" (click)="openReschedule()">📅 Reschedule</button>
                 </div>
               </ng-container>
-              <a routerLink="/login" class="btn btn-primary btn-block" *ngIf="!auth.user()">Login to Contact</a>
+              <a routerLink="/login" class="btn btn-primary btn-block" *ngIf="!hasActiveSession()">Login to Contact</a>
             </div>
 
             <div class="quick-info card">
@@ -429,7 +429,7 @@ interface SiteVisitDto {
       top: 1rem;
       left: 1rem;
       z-index: 3;
-      background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+      background: var(--verified-gradient);
       color: #fff;
       padding: 0.35rem 0.7rem;
       border-radius: var(--radius-sm);
@@ -797,7 +797,8 @@ export class PropertyDetailComponent implements OnInit {
     public auth: AuthService,
     private toast: ToastrService,
     private cdr: ChangeDetectorRef,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private router: Router
   ) {}
 
   @HostListener('document:keydown.escape')
@@ -827,6 +828,10 @@ export class PropertyDetailComponent implements OnInit {
     this.zoomOpen = false;
   }
 
+  hasActiveSession(): boolean {
+    return !!this.auth.user() && !!this.auth.getToken();
+  }
+
   get currentImageFullUrl(): string {
     return this.imageFullUrl(this.currentImage);
   }
@@ -847,7 +852,7 @@ export class PropertyDetailComponent implements OnInit {
           this.property = p as Property | null;
           this.loading = false;
           this.loadError = this.property ? '' : 'Invalid response from server.';
-          if (this.auth.user() && this.property) {
+          if (this.hasActiveSession() && this.property) {
             this.api.get<{ inWatchlist: boolean }>('/properties/' + id + '/watchlist').subscribe({
               next: (r) => {
                 this.inWatchlist = r.inWatchlist;
@@ -874,7 +879,7 @@ export class PropertyDetailComponent implements OnInit {
 
   /** Load current user's active site visit for this property so we show Reschedule instead of Book when one exists. */
   loadMyVisitForProperty() {
-    if (!this.property?.id || !this.auth.user()) return;
+    if (!this.property?.id || !this.hasActiveSession()) return;
     this.api.get<SiteVisitDto>('/sitevisits/my/for-property/' + this.property.id).subscribe({
       next: (v) => (this.myVisitForProperty = v),
       error: () => {
@@ -913,8 +918,8 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   bookVisit() {
-    if (!this.auth.user()) {
-      this.toast.info('Please login to book a visit');
+    if (!this.hasActiveSession()) {
+      this.toast.info('Please login again to book a visit.');
       return;
     }
     if (this.myVisitForProperty) {
@@ -940,7 +945,14 @@ export class PropertyDetailComponent implements OnInit {
         this.visitNotes = '';
         this.myVisitForProperty = v;
       },
-      error: (e) => this.toast.error(e.error?.message || 'Failed to book visit'),
+      error: (e) => {
+        if (e?.status === 401) {
+          this.toast.info('Session expired. Please login again.');
+          this.router.navigate(['/login']);
+          return;
+        }
+        this.toast.error(e.error?.message || 'Failed to book visit');
+      },
     });
   }
 
@@ -966,13 +978,18 @@ export class PropertyDetailComponent implements OnInit {
       },
       error: (e) => {
         this.rescheduling = false;
+        if (e?.status === 401) {
+          this.toast.info('Session expired. Please login again.');
+          this.router.navigate(['/login']);
+          return;
+        }
         this.toast.error(e.error?.message || 'Failed to reschedule');
       },
     });
   }
 
   toggleWatchlist() {
-    if (!this.property || !this.auth.user()) return;
+    if (!this.property || !this.hasActiveSession()) return;
     if (this.inWatchlist) {
       this.api.delete('/properties/' + this.property.id + '/watchlist').subscribe({
         next: () => {

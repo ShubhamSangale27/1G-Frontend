@@ -87,6 +87,8 @@ import { ToastrService } from 'ngx-toastr';
     .page-header h1 {
       font-size: 2rem;
       margin-bottom: 0.5rem;
+      color: var(--text);
+      font-weight: 800;
     }
     .page-header p {
       color: var(--text-muted);
@@ -119,9 +121,9 @@ import { ToastrService } from 'ngx-toastr';
       text-transform: capitalize;
       color: white;
     }
-    .status-approved { background: var(--success); }
-    .status-pending { background: var(--warning); }
-    .status-rejected { background: var(--danger); }
+    .status-approved { background: var(--success-bg); color: var(--success-text); }
+    .status-pending { background: var(--status-pending-bg); color: var(--status-pending-text); }
+    .status-rejected { background: var(--danger-bg); color: var(--danger-text-strong); }
     .action-buttons {
       display: flex;
       flex-wrap: wrap;

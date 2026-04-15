@@ -224,7 +224,21 @@ interface UserRow {
                 <tr *ngFor="let u of allUsers">
                   <td>{{ u.fullName }}</td>
                   <td>{{ u.email }}</td>
-                  <td>{{ u.role }}</td>
+                  <td>
+                    <div class="role-cell">
+                      <span class="status-badge" [class.status-assigned]="u.role === 'AGENT'" [class.status-completed]="u.role === 'ADMIN'">
+                        {{ u.role }}
+                      </span>
+                      <div class="role-actions">
+                        <select class="form-select sm" [ngModel]="u.role"
+                                (ngModelChange)="changeUserRole(u, $event)"
+                                [disabled]="changingUserRole[u.id] || u.id === currentUserId">
+                          <option value="ADMIN">ADMIN</option>
+                          <option value="AGENT">AGENT</option>
+                        </select>
+                      </div>
+                    </div>
+                  </td>
                   <td>
                     <span class="status-badge" [class.status-completed]="u.active" [class.status-rejected]="u.active === false">
                       {{ u.active ? 'ACTIVE' : 'SUSPENDED' }}
@@ -233,12 +247,12 @@ interface UserRow {
                   <td>
                     <button type="button" class="btn btn-outline btn-sm"
                             (click)="toggleUserStatus(u)"
-                            [disabled]="updatingUserStatus[u.id] || deletingUser[u.id] || u.role === 'ADMIN'">
+                            [disabled]="updatingUserStatus[u.id] || deletingUser[u.id] || u.id === currentUserId">
                       {{ u.active ? 'Suspend' : 'Activate' }}
                     </button>
                     <button type="button" class="btn btn-outline btn-sm btn-danger"
                             (click)="deleteUser(u)"
-                            [disabled]="deletingUser[u.id] || u.role === 'ADMIN'">
+                            [disabled]="deletingUser[u.id] || u.id === currentUserId">
                       Delete
                     </button>
                   </td>
@@ -586,7 +600,7 @@ interface UserRow {
       border-bottom: 1px solid var(--border);
     }
     .visits-table th { font-weight: 700; color: var(--text-muted); }
-    .visits-table tr.due-today { background: rgba(37, 99, 235, 0.08); }
+    .visits-table tr.due-today { background: rgba(14, 165, 233, 0.08); }
     .status-badge {
       padding: 0.25rem 0.5rem;
       border-radius: 9999px;
@@ -594,22 +608,36 @@ interface UserRow {
       font-weight: 600;
       text-transform: capitalize;
     }
-    .status-pending_assignment { background: #fef3c7; color: #92400e; }
-    .status-assigned { background: #dbeafe; color: #1e40af; }
-    .status-completed { background: #d1fae5; color: #065f46; }
-    .status-cancelled { background: #f3f4f6; color: #6b7280; }
-    .status-rejected { background: #fee2e2; color: #991b1b; }
+    /** Property rows use .replace('_','') once → e.g. PENDING_APPROVAL → pendingapproval */
+    .status-pendingapproval,
+    .status-pending_assignment { background: var(--status-pending-bg); color: var(--status-pending-text); }
+    .status-approved { background: var(--success-bg); color: var(--success-text); }
+    .status-assigned { background: var(--info-bg); color: var(--info-text); }
+    .status-completed { background: var(--success-bg); color: var(--success-text); }
+    .status-cancelled { background: var(--status-neutral-bg); color: var(--status-neutral-text); }
+    .status-rejected { background: var(--danger-bg); color: var(--danger-text-strong); }
     .form-select.sm { min-width: 140px; }
+    .role-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .role-actions .form-select {
+      min-width: 110px;
+      min-height: 2.1rem;
+      padding: 0.25rem 0.5rem;
+    }
     .pagination-row {
       display: flex;
       align-items: center;
       gap: 1rem;
       margin-top: 1rem;
     }
-    .badge-info { background: #dbeafe; color: #1e40af; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; }
+    .badge-info { background: var(--info-bg); color: var(--info-text); padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; }
     .all-properties-section { margin-top: 2rem; }
     .header-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    .badge-new { background: #d1fae5; color: #065f46; padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; }
+    .badge-new { background: var(--success-bg); color: var(--success-text); padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; }
     .new-row { background: rgba(16, 185, 129, 0.06); }
     .btn-danger { color: var(--danger, #dc2626); border-color: var(--danger, #dc2626); }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
@@ -674,10 +702,21 @@ export class AdminComponent implements OnInit {
   loadingUsers = false;
   updatingUserStatus: Record<number, boolean> = {};
   deletingUser: Record<number, boolean> = {};
+  changingUserRole: Record<number, boolean> = {};
+  currentUserId: number | null = null;
 
   constructor(private api: ApiService, private toast: ToastrService, private cdr: ChangeDetectorRef, private ngZone: NgZone) {}
 
   ngOnInit() {
+    const userRaw = localStorage.getItem('user');
+    if (userRaw) {
+      try {
+        const parsed = JSON.parse(userRaw);
+        this.currentUserId = parsed?.id ?? null;
+      } catch {
+        this.currentUserId = null;
+      }
+    }
     this.api.get<Record<string, number>>('/admin/metrics').subscribe({
       next: (m) => {
         this.metrics = m as typeof this.metrics;
@@ -880,6 +919,22 @@ export class AdminComponent implements OnInit {
       error: (e) => {
         this.updatingUserStatus[user.id] = false;
         this.toast.error(e.error?.message || 'Failed to update status');
+      },
+    });
+  }
+
+  changeUserRole(user: UserRow, nextRole: string) {
+    if (!nextRole || nextRole === user.role || user.id === this.currentUserId) return;
+    this.changingUserRole[user.id] = true;
+    this.api.put<UserRow>('/admin/users/' + user.id + '/role?role=' + nextRole, {}).subscribe({
+      next: (updated) => {
+        this.changingUserRole[user.id] = false;
+        user.role = updated.role;
+        this.toast.success('User role updated');
+      },
+      error: (e) => {
+        this.changingUserRole[user.id] = false;
+        this.toast.error(e.error?.message || 'Failed to update role');
       },
     });
   }

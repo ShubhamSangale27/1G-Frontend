@@ -123,10 +123,10 @@ const PRICE_STEP = 100_000;
               </select>
             </div>
           </div>
-          <div class="results-grid grid grid-3" *ngIf="properties.length && !loading">
+          <div class="results-grid" *ngIf="properties.length && !loading">
             <app-property-card *ngFor="let p of properties" [property]="p" />
           </div>
-          <div class="results-grid grid grid-3" *ngIf="loading">
+          <div class="results-grid" *ngIf="loading">
             <div class="card" *ngFor="let i of [1,2,3,4,5,6]">
               <app-skeleton-loader height="200px" radius="var(--radius-lg) 0 0 var(--radius-lg)"></app-skeleton-loader>
               <div style="padding: 1.25rem;">
@@ -191,12 +191,15 @@ const PRICE_STEP = 100_000;
       font-weight: 400;
     }
     .search-layout {
-      display: grid;
-      grid-template-columns: 320px 1fr;
+      display: flex;
+      align-items: flex-start;
       gap: 2rem;
-      padding: 0 1.5rem 2rem;
+      padding: 0 1.5rem 2.5rem;
     }
     .filters-sidebar {
+      flex: 0 0 28%;
+      min-width: 280px;
+      max-width: 360px;
       position: sticky;
       top: 100px;
       height: fit-content;
@@ -369,6 +372,8 @@ const PRICE_STEP = 100_000;
       z-index: 3;
     }
     .results-main {
+      flex: 1 1 auto;
+      min-width: 0;
       min-height: 500px;
     }
     .results-header {
@@ -409,6 +414,9 @@ const PRICE_STEP = 100_000;
       font-size: 0.875rem;
     }
     .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 1.25rem;
       margin-bottom: 2rem;
     }
     .empty-state {
@@ -439,11 +447,13 @@ const PRICE_STEP = 100_000;
     }
     @media (max-width: 1024px) {
       .search-layout {
-        grid-template-columns: 1fr;
+        display: block;
         gap: 1.5rem;
         padding: 0 1rem 1.5rem;
       }
       .filters-sidebar {
+        min-width: 0;
+        max-width: none;
         position: static;
       }
       .filters-card {

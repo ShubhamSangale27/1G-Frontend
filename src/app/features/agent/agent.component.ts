@@ -110,8 +110,8 @@ interface AgentVisitsResponse {
       gap: 1rem;
       padding: 1.25rem 1.5rem;
       margin-bottom: 2rem;
-      background: rgba(37, 99, 235, 0.08);
-      border: 2px solid rgba(37, 99, 235, 0.2);
+      background: var(--info-bg);
+      border: 2px solid rgba(14, 165, 233, 0.25);
     }
     .banner-icon { font-size: 2rem; }
     .banner-content {
@@ -133,8 +133,8 @@ interface AgentVisitsResponse {
     }
     .section-header h2 { margin: 0; font-size: 1.375rem; font-weight: 700; }
     .badge-info {
-      background: #dbeafe;
-      color: #1e40af;
+      background: var(--info-bg);
+      color: var(--info-text);
       padding: 0.25rem 0.75rem;
       border-radius: 9999px;
       font-size: 0.875rem;
@@ -152,7 +152,7 @@ interface AgentVisitsResponse {
       border-radius: var(--radius);
       border: 1px solid var(--border);
     }
-    .visit-item.due-today { background: rgba(37, 99, 235, 0.06); border-color: rgba(37, 99, 235, 0.25); }
+    .visit-item.due-today { background: rgba(14, 165, 233, 0.06); border-color: rgba(14, 165, 233, 0.28); }
     .visit-property { font-weight: 600; color: var(--text); margin-bottom: 0.35rem; }
     .visit-meta { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.875rem; color: var(--text-muted); }
     .visit-status {
@@ -161,9 +161,9 @@ interface AgentVisitsResponse {
       font-size: 0.75rem;
       font-weight: 600;
     }
-    .status-assigned { background: #dbeafe; color: #1e40af; }
-    .status-completed { background: #d1fae5; color: #065f46; }
-    .due-badge { background: #fef3c7; color: #92400e; padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .status-assigned { background: var(--info-bg); color: var(--info-text); }
+    .status-completed { background: var(--success-bg); color: var(--success-text); }
+    .due-badge { background: var(--warning-bg); color: #b45309; padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
     .visit-user { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem; }
     .empty-state { text-align: center; padding: 2rem; }
     .empty-icon { font-size: 3rem; margin-bottom: 0.5rem; }

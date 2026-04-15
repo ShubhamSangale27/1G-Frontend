@@ -13,19 +13,25 @@ import { CarouselModule } from 'ngx-bootstrap/carousel';
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule, PropertyCardComponent, SkeletonLoaderComponent, CarouselModule],
   template: `
-   <carousel>
-  <slide>
-    <a href="#" target="_blank" class="carouselimg"><img src="assets/images/carousel/1.jpg" alt="first slide" style="display: block; width: 100%; max-height:200px;"></a>
-  </slide>
-  <slide>
-    <a href="#" target="_blank" class="carouselimg"><img src="assets/images/carousel/2.jpg" alt="second slide" style="display: block; width: 100%; max-height:200px;"></a>
-  </slide>
-  <slide>
-    <a href="#" target="_blank" class="carouselimg"><img src="assets/images/carousel/3.jpg" alt="third slide" style="display: block; width: 100%; max-height:200px;"></a>
-  </slide>
-</carousel>
-<br/>
-
+    <section class="home-carousel-wrap" aria-label="Featured banners">
+      <carousel>
+        <slide>
+          <a href="#" target="_blank" rel="noopener" class="carouselimg">
+            <img src="assets/images/carousel/1.jpg" alt="Banner 1" />
+          </a>
+        </slide>
+        <slide>
+          <a href="#" target="_blank" rel="noopener" class="carouselimg">
+            <img src="assets/images/carousel/2.jpg" alt="Banner 2" />
+          </a>
+        </slide>
+        <slide>
+          <a href="#" target="_blank" rel="noopener" class="carouselimg">
+            <img src="assets/images/carousel/3.jpg" alt="Banner 3" />
+          </a>
+        </slide>
+      </carousel>
+    </section>
 
  <div class="loancalcicon" id="loancalcid" onClick="showpopup1()">
 	    <img src="assets/images/calcicon.jpg">
@@ -44,7 +50,7 @@ import { CarouselModule } from 'ngx-bootstrap/carousel';
 				  <input type="text" id="roiid" name="roi" size="4" value="12" />%<br /><br />
 					<label>Enter Tenure in Years</label><br />
 				  <input type="text" id="tenureid" name="tenure" size="4" maxlength="12" value="3"/><br /><br />
-				  <input type="submit"  value="Calculate!" style="color:#000;" onClick="calcval()"/><br /><br />
+				  <input type="submit" class="btn btn-primary btn-sm" value="Calculate!" onClick="calcval()"/><br /><br />
 				  <label>Final Amount will be</label><br />
 				  <input type="text" name="finalamt" id="finalamtid" size="16" maxlength="12" disabled/><br />
 		  </div>
@@ -314,6 +320,27 @@ From custom designs to timeless classics, we build furniture that tells your sto
     
   `,
   styles: [`
+    :host { display: block; }
+    .home-carousel-wrap {
+      margin-bottom: 1.5rem;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+    }
+    .home-carousel-wrap ::ng-deep carousel { display: block; }
+    .home-carousel-wrap ::ng-deep .carousel-inner,
+    .home-carousel-wrap ::ng-deep .item,
+    .home-carousel-wrap ::ng-deep slide { max-height: 220px; }
+    .carouselimg {
+      display: block;
+      line-height: 0;
+    }
+    .carouselimg img {
+      display: block;
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+    }
     .hero {
       position: relative;
       background: var(--primary-gradient);
@@ -392,7 +419,7 @@ From custom designs to timeless classics, we build furniture that tells your sto
     .search-box input {
       flex: 1;
       padding: 1.125rem 1.5rem;
-      color: #000;
+      color: var(--text);
       border: 2px solid var(--border);
       border-radius: var(--radius);
       font-size: 1rem;
@@ -547,7 +574,7 @@ From custom designs to timeless classics, we build furniture that tells your sto
       background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23dots)"/></svg>');
     }
     .cta-card {
-      background: white;
+      background: var(--surface);
       padding: 4rem 3rem;
       border-radius: var(--radius-xl);
       text-align: center;
@@ -556,12 +583,19 @@ From custom designs to timeless classics, we build furniture that tells your sto
       box-shadow: var(--shadow-2xl);
       position: relative;
       z-index: 1;
+      border: 1px solid var(--border-light);
     }
     .cta-card h2 {
       color: var(--text);
       margin-bottom: 1rem;
       font-size: 2.25rem;
       font-weight: 800;
+    }
+    .cta-card p {
+      color: var(--text-muted);
+      margin-bottom: 2.5rem;
+      font-size: 1.1875rem;
+      line-height: 1.6;
     }
       .loancalcicon{
 	      width: 50px;
@@ -591,7 +625,7 @@ From custom designs to timeless classics, we build furniture that tells your sto
     display: flex;
 	cursor:pointer;
 	z-index:999;
-	color: #000;
+	color: var(--footer-text);
 	font-weight: bold;
 	font-size:25pt;
 }
@@ -602,14 +636,15 @@ From custom designs to timeless classics, we build furniture that tells your sto
 
 
 .popup{
-	width : 50%;
+	width : min(100%, 520px);
 	height : 100%;
-	background-color: rgba(73, 73, 77, 0.88);
+	background-color: rgba(15, 23, 42, 0.88);
 	z-index:9999;
 	position: fixed;
 	display:none;
-	transform: translateX(50%);
+	right: 0;
 	top: 0;
+	left: auto;
 }
 .closeicon{
 	width: 50px;
@@ -620,7 +655,7 @@ From custom designs to timeless classics, we build furniture that tells your sto
     display: flex;
 	cursor:pointer;
 	z-index:999;
-	color: #000;
+	color: var(--footer-text);
 	font-weight: bold;
 	font-size:25pt;
 }
@@ -634,12 +669,15 @@ From custom designs to timeless classics, we build furniture that tells your sto
 }
 
 .formdata{
-	text-align: center;
+	text-align: left;
 	transform: translateY(5%);
-  color: #000;
+  color: var(--text);
   margin: 0 auto;
-  width: 60%;
-  
+  width: min(92%, 420px);
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
 }
 .logoservice{
 	width: 50px;
@@ -649,13 +687,34 @@ From custom designs to timeless classics, we build furniture that tells your sto
 
 
 .form-label{
-	color: #ffff;
+	color: var(--text-muted);
 }
 .servicecards{
-	margin: 15px;
-    background-color: cadetblue;
-	padding:10px;
+	margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+	padding: 1.25rem;
   text-align: center;
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+}
+.servicecards:hover {
+  border-color: var(--primary-light);
+  box-shadow: var(--shadow-md);
+}
+.servicecards h5 {
+  color: var(--text);
+  font-weight: 700;
+  margin: 0.5rem 0;
+}
+.servicecards p {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.servicecards input[type="button"] {
+  margin-top: 0.75rem;
 }
 
 .servicename{
@@ -671,170 +730,44 @@ text-align: center;
 .chart img{
 width : 80%;
 }
-    .cta-card p {
-      color: var(--text-muted);
-      margin-bottom: 2.5rem;
-      font-size: 1.1875rem;
-      line-height: 1.6;
-    }
     .empty-state {
       text-align: center;
       padding: 3rem;
       color: var(--text-muted);
     }
-      /* GLOBAL STYLES
--------------------------------------------------- */
-/* Padding below the footer and lighter body text */
-
-body {
-  padding-bottom: 40px;
-  color: #5a5a5a;
-}
-
-
-/* CUSTOMIZE THE NAVBAR
--------------------------------------------------- */
-
-/* Special class on .container surrounding .navbar, used for positioning it into place. */
-.navbar-wrapper {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 20;
-}
-
-/* Flip around the padding for proper display in narrow viewports */
-.navbar-wrapper > .container {
-  padding-right: 0;
-  padding-left: 0;
-}
-.navbar-wrapper .navbar {
-  padding-right: 15px;
-  padding-left: 15px;
-}
-.navbar-wrapper .navbar .container {
-  width: auto;
-}
-
-
-/* CUSTOMIZE THE CAROUSEL
--------------------------------------------------- */
-
-/* Carousel base class */
-.carousel {
-  height: 500px;
-  margin-bottom: 60px;
-}
-/* Since positioning the image, we need to help out the caption */
-.carousel-caption {
-  z-index: 10;
-}
-
-/* Declare heights because of positioning of img element */
-.carousel .item {
-  height: 500px;
-  background-color: #777;
-}
-.carousel-inner > .item > img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  min-width: 100%;
-  height: 500px;
-}
-
-
-/* MARKETING CONTENT
--------------------------------------------------- */
-
-/* Center align the text within the three columns below the carousel */
-.marketing .col-lg-4 {
-  margin-bottom: 20px;
-  text-align: center;
-}
-.marketing h2 {
-  font-weight: normal;
-}
-.marketing .col-lg-4 p {
-  margin-right: 10px;
-  margin-left: 10px;
-}
-
-
-/* Featurettes
-------------------------- */
-
-.featurette-divider {
-  margin: 80px 0; /* Space out the Bootstrap <hr> more */
-}
-
-/* Thin out the marketing headings */
-.featurette-heading {
-  font-weight: 300;
-  line-height: 1;
-  letter-spacing: -1px;
-}
-
-.carouselimg img{
-transition: transform .2s;
-}
-
-.carouselimg img:hover{
-transform: scale(1.2); 
-}
-
-/* RESPONSIVE CSS
--------------------------------------------------- */
-
-@media (min-width: 768px) {
-  /* Navbar positioning foo */
-  .navbar-wrapper {
-    margin-top: 20px;
-  }
-  .navbar-wrapper .container {
-    padding-right: 15px;
-    padding-left: 15px;
-  }
-  .navbar-wrapper .navbar {
-    padding-right: 0;
-    padding-left: 0;
-  }
-
-  /* The navbar becomes detached from the top, so we round the corners */
-  .navbar-wrapper .navbar {
-    border-radius: 4px;
-  }
-
-  /* Bump up size of carousel content */
-  .carousel-caption p {
-    margin-bottom: 20px;
-    font-size: 21px;
-    line-height: 1.4;
-  }
-
-  .featurette-heading {
-    font-size: 50px;
-  }
-}
-
-@media (min-width: 992px) {
-  .featurette-heading {
-    margin-top: 120px;
-  }
-}
+    .row.nomargin {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin: 0 auto 1.5rem;
+      padding: 0 1rem;
+      max-width: 1280px;
+      box-sizing: border-box;
+    }
+    .row.nomargin [class*="col-"] {
+      width: 100%;
+      max-width: 100%;
+      padding: 0;
+    }
+    .carouselimg img {
+      transition: transform 0.25s ease;
+    }
+    .carouselimg img:hover {
+      transform: scale(1.02);
+    }
     @media (max-width: 768px) {
 
       .hero h1 { font-size: 2.5rem; }
       .hero-subtitle { font-size: 1.125rem; }
-      .search-box { flex-direction: column; color: #000; }
+      .search-box { flex-direction: column; color: var(--text); }
       .section-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
 
       .popup{
         width :100%;
         height : 100%;
-        transform: translateX(0%);
-      }	
+        left: 0;
+        right: 0;
+      }
     }
   `],
 })

@@ -282,7 +282,6 @@ a {
 
 .toast-container {
   position: fixed;
-  z-index: 9999;
 }
 
 .section-title {
@@ -323,8 +322,8 @@ a {
   }
 }
 
-/* ngx-toastr above fixed loan/WhatsApp widgets (z-index 99) and modal overlays */
+/* ngx-toastr: above site-visit dialogs (600000), header (1000), and home widgets */
 #toast-container,
 .toast-container {
-  z-index: 100050 !important;
+  z-index: 800000 !important;
 }

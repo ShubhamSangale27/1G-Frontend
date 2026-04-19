@@ -1,10 +1,9 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { HttpContext, HttpErrorResponse } from '@angular/common/http';
+import { HttpContext } from '@angular/common/http';
 import { SKIP_GLOBAL_ERROR_TOAST } from '../http-context.tokens';
 import { Router } from '@angular/router';
+import { Observable, tap } from 'rxjs';
 import { ApiService } from './api.service';
-import { ToastrService } from 'ngx-toastr';
-import { extractHttpErrorMessage } from '../utils/http-error-message.util';
 
 export interface User {
   id: number;
@@ -45,50 +44,22 @@ export class AuthService {
 
   constructor(
     private api: ApiService,
-    private router: Router,
-    private toast: ToastrService
+    private router: Router
   ) {
     const u = localStorage.getItem('user');
     if (u) this.userSignal.set(JSON.parse(u));
   }
 
-  login(email: string, password: string) {
-    return this.api.post<AuthResponse>('/auth/login', { email, password }, this.skipGlobalErrorToast).subscribe({
-      next: (res) => {
-        this.setSession(res);
-        setTimeout(() => {
-          this.toast.success(`Welcome back, ${res.user.fullName}`);
-          this.router.navigate(['/dashboard']);
-        }, 0);
-      },
-      error: (err: unknown) => {
-        const msg = err instanceof HttpErrorResponse ? extractHttpErrorMessage(err) : 'Sign in failed. Please try again.';
-        this.toast.error(msg);
-      },
-    });
+  /** Login POST; caller runs toasts/navigation inside NgZone. Session is set in `tap` on success. */
+  login(email: string, password: string): Observable<AuthResponse> {
+    return this.api.post<AuthResponse>('/auth/login', { email, password }, this.skipGlobalErrorToast).pipe(
+      tap((res) => this.setSession(res)),
+    );
   }
 
-  signup(email: string, password: string, fullName: string, mobile: string) {
-    return this.api.post<SignupResponse>('/auth/signup', { email, password, fullName, mobile }, this.skipGlobalErrorToast).subscribe({
-      next: (res) => {
-        sessionStorage.setItem('pendingVerification', JSON.stringify({
-          email: res.email,
-          mobile: res.mobile,
-          resendAttemptsUsed: res.resendAttemptsUsed ?? 0,
-          resendAttemptsRemaining: res.resendAttemptsRemaining ?? 3,
-          resendAvailableAt: res.resendAvailableAt ?? null,
-          maxResendAttemptsPerDay: res.maxResendAttemptsPerDay ?? 3,
-        }));
-        setTimeout(() => {
-          this.toast.success(res.message || 'OTP sent to your mobile. Enter it on the next screen.');
-          this.router.navigate(['/verify-otp']);
-        }, 0);
-      },
-      error: (err: unknown) => {
-        const msg = err instanceof HttpErrorResponse ? extractHttpErrorMessage(err) : 'Could not create your account. Please try again.';
-        this.toast.error(msg);
-      },
-    });
+  /** Signup POST; caller handles OTP redirect UI. */
+  signup(email: string, password: string, fullName: string, mobile: string): Observable<SignupResponse> {
+    return this.api.post<SignupResponse>('/auth/signup', { email, password, fullName, mobile }, this.skipGlobalErrorToast);
   }
 
   resendSignupOtp(email: string, mobile: string) {

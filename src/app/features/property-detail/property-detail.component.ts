@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, HostListener, ChangeDetectorRef, NgZone, signal } from '@angular/core';
 import { HttpContext } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -276,47 +276,65 @@ interface SiteVisitDto {
     </div>
     </div>
 
-    <div class="modal-overlay" *ngIf="showBookForm" (click)="showBookForm = false">
-      <div class="modal card" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3>Book Site Visit</h3>
-          <button class="modal-close" (click)="showBookForm = false">×</button>
+    @if (bookVisitOpen()) {
+      <div class="pv-dialog-root" role="presentation">
+        <div class="pv-dialog-backdrop" (click)="closeBookVisitDialog()" aria-hidden="true"></div>
+        <div
+          class="pv-dialog-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pv-book-title"
+          (click)="$event.stopPropagation()"
+        >
+          <div class="pv-dialog-header">
+            <h3 id="pv-book-title">Book Site Visit</h3>
+            <button type="button" class="pv-dialog-close" (click)="closeBookVisitDialog()" aria-label="Close">×</button>
+          </div>
+          <form (ngSubmit)="submitVisit()" class="pv-dialog-body">
+            <div class="form-group">
+              <label>Preferred Date & Time</label>
+              <input type="datetime-local" [(ngModel)]="visitDate" name="visitDate" required />
+            </div>
+            <div class="form-group">
+              <label>Additional Notes (Optional)</label>
+              <textarea [(ngModel)]="visitNotes" name="visitNotes" rows="4" placeholder="Any special requirements or questions..."></textarea>
+            </div>
+            <div class="pv-dialog-actions">
+              <button type="button" class="btn btn-outline" (click)="closeBookVisitDialog()">Cancel</button>
+              <button type="submit" class="btn btn-primary">Submit Request</button>
+            </div>
+          </form>
         </div>
-        <form (ngSubmit)="submitVisit()" class="modal-body">
-          <div class="form-group">
-            <label>Preferred Date & Time</label>
-            <input type="datetime-local" [(ngModel)]="visitDate" name="visitDate" required />
-          </div>
-          <div class="form-group">
-            <label>Additional Notes (Optional)</label>
-            <textarea [(ngModel)]="visitNotes" name="visitNotes" rows="4" placeholder="Any special requirements or questions..."></textarea>
-          </div>
-          <div class="modal-actions">
-            <button type="button" class="btn btn-outline" (click)="showBookForm = false">Cancel</button>
-            <button type="submit" class="btn btn-primary">Submit Request</button>
-          </div>
-        </form>
       </div>
-    </div>
+    }
 
-    <div class="modal-overlay" *ngIf="showRescheduleForm" (click)="showRescheduleForm = false">
-      <div class="modal card" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3>Reschedule Site Visit</h3>
-          <button class="modal-close" (click)="showRescheduleForm = false">×</button>
+    @if (rescheduleVisitOpen()) {
+      <div class="pv-dialog-root" role="presentation">
+        <div class="pv-dialog-backdrop" (click)="closeRescheduleVisitDialog()" aria-hidden="true"></div>
+        <div
+          class="pv-dialog-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pv-reschedule-title"
+          (click)="$event.stopPropagation()"
+        >
+          <div class="pv-dialog-header">
+            <h3 id="pv-reschedule-title">Reschedule Site Visit</h3>
+            <button type="button" class="pv-dialog-close" (click)="closeRescheduleVisitDialog()" aria-label="Close">×</button>
+          </div>
+          <form (ngSubmit)="submitReschedule()" class="pv-dialog-body">
+            <div class="form-group">
+              <label>New Date & Time</label>
+              <input type="datetime-local" [(ngModel)]="rescheduleDate" name="rescheduleDate" required />
+            </div>
+            <div class="pv-dialog-actions">
+              <button type="button" class="btn btn-outline" (click)="closeRescheduleVisitDialog()">Cancel</button>
+              <button type="submit" class="btn btn-primary" [disabled]="rescheduling">{{ rescheduling ? 'Updating...' : 'Reschedule Visit' }}</button>
+            </div>
+          </form>
         </div>
-        <form (ngSubmit)="submitReschedule()" class="modal-body">
-          <div class="form-group">
-            <label>New Date & Time</label>
-            <input type="datetime-local" [(ngModel)]="rescheduleDate" name="rescheduleDate" required />
-          </div>
-          <div class="modal-actions">
-            <button type="button" class="btn btn-outline" (click)="showRescheduleForm = false">Cancel</button>
-            <button type="submit" class="btn btn-primary" [disabled]="rescheduling">{{ rescheduling ? 'Updating...' : 'Reschedule Visit' }}</button>
-          </div>
-        </form>
       </div>
-    </div>
+    }
   `,
   styles: [`
     :host { display: block; min-height: 60vh; width: 100%; box-sizing: border-box; }
@@ -676,55 +694,71 @@ interface SiteVisitDto {
       font-weight: 600;
       color: var(--text);
     }
-    .modal-overlay {
+    /* Site visit dialogs: separate backdrop + panel (avoids global .card overflow:hidden clipping). */
+    .pv-dialog-root {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100001;
-      padding: 1rem;
+      z-index: 600000;
+      pointer-events: none;
     }
-    .modal {
-      position: relative;
+    .pv-dialog-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      pointer-events: auto;
+    }
+    .pv-dialog-panel {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(92vw, 520px);
+      max-height: min(88vh, 720px);
+      overflow: auto;
+      pointer-events: auto;
+      background: var(--surface);
+      color: var(--text);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-2xl);
+      border: 1px solid var(--border);
       z-index: 1;
-      max-width: 500px;
-      width: 100%;
-      max-height: 90vh;
-      overflow-y: auto;
     }
-    .modal-header {
+    .pv-dialog-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1.5rem;
+      padding: 1.25rem 1.5rem;
       border-bottom: 1px solid var(--border-light);
     }
-    .modal-header h3 {
+    .pv-dialog-header h3 {
       margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text);
     }
-    .modal-close {
+    .pv-dialog-close {
       background: none;
       border: none;
       font-size: 1.5rem;
       cursor: pointer;
       color: var(--text-muted);
       padding: 0;
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
       border-radius: var(--radius-sm);
+      line-height: 1;
     }
-    .modal-close:hover {
+    .pv-dialog-close:hover {
       background: var(--bg);
+      color: var(--text);
     }
-    .modal-body {
+    .pv-dialog-body {
       padding: 1.5rem;
     }
-    .modal-actions {
+    .pv-dialog-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 0.75rem;
@@ -814,11 +848,11 @@ export class PropertyDetailComponent implements OnInit {
   /** Avoid global error toast when optional "my visit" is absent (404 legacy) or 204. */
   private readonly silentOptionalVisitCtx = new HttpContext().set(SILENT_NOT_FOUND, true);
 
-  showBookForm = false;
+  readonly bookVisitOpen = signal(false);
   visitDate = '';
   visitNotes = '';
   myVisitForProperty: SiteVisitDto | null = null;
-  showRescheduleForm = false;
+  readonly rescheduleVisitOpen = signal(false);
   rescheduleDate = '';
   rescheduling = false;
   zoomOpen = false;
@@ -838,7 +872,23 @@ export class PropertyDetailComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEscape() {
+    if (this.bookVisitOpen()) {
+      this.bookVisitOpen.set(false);
+      return;
+    }
+    if (this.rescheduleVisitOpen()) {
+      this.rescheduleVisitOpen.set(false);
+      return;
+    }
     this.zoomOpen = false;
+  }
+
+  closeBookVisitDialog(): void {
+    this.bookVisitOpen.set(false);
+  }
+
+  closeRescheduleVisitDialog(): void {
+    this.rescheduleVisitOpen.set(false);
   }
 
   imageFullUrl(url: string): string {
@@ -971,22 +1021,24 @@ export class PropertyDetailComponent implements OnInit {
       this.toast.info('You already have a site visit for this property. Use Reschedule to change the date.');
       return;
     }
-    this.showBookForm = true;
-    this.cdr.detectChanges();
+    this.ngZone.run(() => {
+      this.bookVisitOpen.set(true);
+      this.cdr.detectChanges();
+    });
   }
 
   submitVisit() {
     if (!this.property || !this.visitDate) return;
     if (this.myVisitForProperty) {
       this.toast.info('You already have an active site visit request for this property.');
-      this.showBookForm = false;
+      this.bookVisitOpen.set(false);
       return;
     }
     const scheduledAt = new Date(this.visitDate).toISOString();
     this.api.post<SiteVisitDto>('/sitevisits', { propertyId: this.property.id, scheduledAt, userNotes: this.visitNotes }).subscribe({
       next: (v) => {
         this.toast.success('Site visit requested successfully');
-        this.showBookForm = false;
+        this.bookVisitOpen.set(false);
         this.visitDate = '';
         this.visitNotes = '';
         this.myVisitForProperty = v;
@@ -1007,8 +1059,10 @@ export class PropertyDetailComponent implements OnInit {
     const d = new Date(this.myVisitForProperty.scheduledAt);
     const pad = (n: number) => String(n).padStart(2, '0');
     this.rescheduleDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    this.showRescheduleForm = true;
-    this.cdr.detectChanges();
+    this.ngZone.run(() => {
+      this.rescheduleVisitOpen.set(true);
+      this.cdr.detectChanges();
+    });
   }
 
   submitReschedule() {
@@ -1018,7 +1072,7 @@ export class PropertyDetailComponent implements OnInit {
     this.api.put<SiteVisitDto>(`/sitevisits/${this.myVisitForProperty.id}/reschedule`, { scheduledAt }).subscribe({
       next: (v) => {
         this.myVisitForProperty = v;
-        this.showRescheduleForm = false;
+        this.rescheduleVisitOpen.set(false);
         this.rescheduleDate = '';
         this.rescheduling = false;
         this.toast.success('Visit rescheduled successfully.');

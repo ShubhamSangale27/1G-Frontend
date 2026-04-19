@@ -1,4 +1,5 @@
 import { Component, OnInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
+import { HttpContext } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -17,6 +18,7 @@ import {
   resolveNativeVideoUrl,
   type PropertyVideoPlayerKind,
 } from '../../core/utils/image-url.util';
+import { SILENT_NOT_FOUND } from '../../core/http-context.tokens';
 
 /** User's active site visit for this property (PENDING_ASSIGNMENT or ASSIGNED). Used to show Reschedule instead of Book. */
 interface SiteVisitDto {
@@ -681,10 +683,12 @@ interface SiteVisitDto {
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      z-index: 100001;
       padding: 1rem;
     }
     .modal {
+      position: relative;
+      z-index: 1;
       max-width: 500px;
       width: 100%;
       max-height: 90vh;
@@ -807,6 +811,9 @@ export class PropertyDetailComponent implements OnInit {
   loadError = '';
   currentIndex = 0;
   inWatchlist = false;
+  /** Avoid global error toast when optional "my visit" is absent (404 legacy) or 204. */
+  private readonly silentOptionalVisitCtx = new HttpContext().set(SILENT_NOT_FOUND, true);
+
   showBookForm = false;
   visitDate = '';
   visitNotes = '';
@@ -913,13 +920,18 @@ export class PropertyDetailComponent implements OnInit {
   /** Load current user's active site visit for this property so we show Reschedule instead of Book when one exists. */
   loadMyVisitForProperty() {
     if (!this.property?.id || !this.hasActiveSession()) return;
-    this.api.get<SiteVisitDto>('/sitevisits/my/for-property/' + this.property.id).subscribe({
-      next: (v) => (this.myVisitForProperty = v),
-      error: () => {
-        // 404 = no active visit; other errors also result in showing Book
-        this.myVisitForProperty = null;
-      },
-    });
+    this.api
+      .get<SiteVisitDto | null>('/sitevisits/my/for-property/' + this.property.id, undefined, this.silentOptionalVisitCtx)
+      .subscribe({
+        next: (v) => {
+          this.myVisitForProperty = v ?? null;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.myVisitForProperty = null;
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   get currentImage(): string {
@@ -960,6 +972,7 @@ export class PropertyDetailComponent implements OnInit {
       return;
     }
     this.showBookForm = true;
+    this.cdr.detectChanges();
   }
 
   submitVisit() {
@@ -995,6 +1008,7 @@ export class PropertyDetailComponent implements OnInit {
     const pad = (n: number) => String(n).padStart(2, '0');
     this.rescheduleDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     this.showRescheduleForm = true;
+    this.cdr.detectChanges();
   }
 
   submitReschedule() {

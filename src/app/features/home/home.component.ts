@@ -672,8 +672,10 @@ import { CarouselModule } from 'ngx-bootstrap/carousel';
 }
 .service-card-cta {
   margin-top: auto;
-  align-self: stretch;
-  max-width: 200px;
+  align-self: center;
+  width: auto;
+  min-width: 9.5rem;
+  max-width: 100%;
 }
 
 .servicename{

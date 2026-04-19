@@ -14,8 +14,12 @@ export class ApiService {
     return this.config.apiUrl;
   }
 
-  get<T>(path: string, params?: Record<string, string | number | boolean>): Observable<T> {
-    let options: { params?: HttpParams } = {};
+  get<T>(
+    path: string,
+    params?: Record<string, string | number | boolean>,
+    context?: HttpContext,
+  ): Observable<T> {
+    let options: { params?: HttpParams; context?: HttpContext } = {};
     if (params && Object.keys(params).length) {
       let httpParams = new HttpParams();
       Object.entries(params).forEach(([k, v]) => {
@@ -23,6 +27,7 @@ export class ApiService {
       });
       options.params = httpParams;
     }
+    if (context) options.context = context;
     return this.http.get<T>(`${this.api}${path}`, options);
   }
 

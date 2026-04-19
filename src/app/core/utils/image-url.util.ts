@@ -16,7 +16,9 @@ export function upgradeInsecureMediaUrl(url: string): string {
     host.includes('googleusercontent.com') ||
     host.includes('googlevideo.com') ||
     host.includes('drive.google.com') ||
-    host.includes('img.youtube.com')
+    host.includes('img.youtube.com') ||
+    host.includes('vimeo.com') ||
+    host.includes('player.vimeo.com')
   ) {
     return 'https://' + rest;
   }
@@ -53,6 +55,18 @@ function extractGoogleDriveFileId(url: string): string | null {
 }
 
 /** YouTube watch, embed, shorts, youtu.be → video id. */
+/** Vimeo page or player URL → numeric video id. */
+export function extractVimeoVideoId(url: string): string | null {
+  if (!url || typeof url !== 'string') return null;
+  const raw = upgradeInsecureMediaUrl(url.trim());
+  if (!raw.includes('vimeo')) return null;
+  const player = raw.match(/player\.vimeo\.com\/video\/(\d+)/i);
+  if (player) return player[1];
+  const page = raw.match(/vimeo\.com\/(?:channels\/[^/]+\/|groups\/[^/]+\/videos\/|video\/)?(\d+)/i);
+  if (page) return page[1];
+  return null;
+}
+
 export function extractYouTubeVideoId(url: string): string | null {
   if (!url || typeof url !== 'string') return null;
   const raw = upgradeInsecureMediaUrl(url.trim());
@@ -99,6 +113,10 @@ export function isYouTubeUrl(url: string | undefined): boolean {
   return !!extractYouTubeVideoId(url || '');
 }
 
+export function isVimeoUrl(url: string | undefined): boolean {
+  return !!extractVimeoVideoId(url || '');
+}
+
 /**
  * Convert Google Drive file view/share link to a direct image URL so <img> can load it.
  * YouTube links (often mis-tagged as IMAGE) resolve to a static thumbnail for <img>.
@@ -110,6 +128,9 @@ export function toDirectImageUrl(url: string | undefined): string {
   const yt = extractYouTubeVideoId(u);
   if (yt) {
     return `https://img.youtube.com/vi/${yt}/hqdefault.jpg`;
+  }
+  if (extractVimeoVideoId(u)) {
+    return 'https://placehold.co/800x450/0f172a/94a3b8?text=Vimeo';
   }
   const fileId = extractGoogleDriveFileId(u);
   if (fileId) {
@@ -137,6 +158,7 @@ export function getPropertyVideoPlayerKind(url: string | undefined): PropertyVid
   const u = upgradeInsecureMediaUrl((url || '').trim());
   if (!u) return 'native';
   if (extractYouTubeVideoId(u)) return 'embed';
+  if (extractVimeoVideoId(u)) return 'embed';
   if (extractGoogleDriveFileId(u)) return 'embed';
   return 'native';
 }
@@ -155,6 +177,10 @@ export function resolveVideoEmbedUrl(url: string | undefined): string {
   if (did) {
     return `https://drive.google.com/file/d/${did}/preview`;
   }
+  const vm = extractVimeoVideoId(u);
+  if (vm) {
+    return `https://player.vimeo.com/video/${vm}`;
+  }
   return '';
 }
 
@@ -165,7 +191,7 @@ export function resolveNativeVideoUrl(url: string | undefined, baseUrl?: string)
   if (!url || typeof url !== 'string') return '';
   const u = upgradeInsecureMediaUrl(url.trim());
   if (!u) return '';
-  if (extractYouTubeVideoId(u) || extractGoogleDriveFileId(u)) return '';
+  if (extractYouTubeVideoId(u) || extractGoogleDriveFileId(u) || extractVimeoVideoId(u)) return '';
   if (u.startsWith('http://') || u.startsWith('https://')) return u;
   const base = (baseUrl || '').replace(/\/$/, '');
   return base ? (u.startsWith('/') ? base + u : base + '/' + u) : u;
@@ -188,6 +214,9 @@ export function resolveVideoCardPosterUrl(url: string | undefined, baseUrl?: str
   if (yt) return `https://img.youtube.com/vi/${yt}/hqdefault.jpg`;
   const did = extractGoogleDriveFileId(u);
   if (did) return `https://drive.google.com/thumbnail?id=${did}&sz=w800`;
+  if (extractVimeoVideoId(u)) {
+    return 'https://placehold.co/400x250/0f172a/94a3b8?text=Vimeo';
+  }
   const native = resolveNativeVideoUrl(u, baseUrl);
   if (native && /\.(mp4|webm|ogg)(\?.*)?$/i.test(native)) {
     return 'https://placehold.co/400x250/0f172a/94a3b8?text=%E2%96%B6+Video';

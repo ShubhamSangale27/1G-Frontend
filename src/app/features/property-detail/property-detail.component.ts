@@ -16,8 +16,10 @@ import {
   getPropertyVideoPlayerKind,
   resolveVideoEmbedUrl,
   resolveNativeVideoUrl,
+  resolveVideoCardPosterUrl,
   type PropertyVideoPlayerKind,
 } from '../../core/utils/image-url.util';
+import { buildGallerySlides, type GallerySlide } from '../../core/utils/property-gallery.util';
 import { SILENT_NOT_FOUND } from '../../core/http-context.tokens';
 
 /** User's active site visit for this property (PENDING_ASSIGNMENT or ASSIGNED). Used to show Reschedule instead of Book. */
@@ -75,41 +77,57 @@ interface SiteVisitDto {
         </div>
 
         <div class="gallery-section">
-          <div class="main-image">
+          <ng-container *ngIf="gallerySlides.length">
+            <div class="main-image" *ngIf="currentSlide as slide">
+              <span class="verified-badge">✔ Verified</span>
+              <ng-container [ngSwitch]="slide.kind">
+                <img
+                  *ngSwitchCase="'photo'"
+                  class="hero-photo hero-media zoomable"
+                  [src]="imageFullUrl(slide.sourceUrl)"
+                  [alt]="property.title"
+                  (click)="openZoom(imageFullUrl(slide.sourceUrl))"
+                />
+                <iframe
+                  *ngSwitchCase="'video-embed'"
+                  class="hero-embed hero-media"
+                  [src]="safeVideoEmbedUrl(slide.sourceUrl)"
+                  title="Property video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen
+                  referrerpolicy="strict-origin-when-cross-origin"
+                ></iframe>
+                <video
+                  *ngSwitchCase="'video-native'"
+                  class="hero-video hero-media"
+                  [src]="nativeVideoUrl(slide.sourceUrl)"
+                  controls
+                  playsinline
+                  preload="metadata"
+                ></video>
+              </ng-container>
+              <button type="button" class="gallery-nav prev" (click)="prevGallery(); $event.stopPropagation()" *ngIf="gallerySlides.length > 1">‹</button>
+              <button type="button" class="gallery-nav next" (click)="nextGallery(); $event.stopPropagation()" *ngIf="gallerySlides.length > 1">›</button>
+              <div class="image-counter" *ngIf="gallerySlides.length > 1">
+                {{ galleryIndex + 1 }} / {{ gallerySlides.length }}
+              </div>
+            </div>
+          </ng-container>
+          <div class="main-image main-image-empty" *ngIf="!gallerySlides.length">
             <span class="verified-badge">✔ Verified</span>
-            <img [src]="currentImageFullUrl" [alt]="property.title" (click)="openZoom(currentImageFullUrl)" class="zoomable" />
-            <button class="gallery-nav prev" (click)="prevImage(); $event.stopPropagation()" *ngIf="imageMedia.length > 1">‹</button>
-            <button class="gallery-nav next" (click)="nextImage(); $event.stopPropagation()" *ngIf="imageMedia.length > 1">›</button>
-            <div class="image-counter" *ngIf="imageMedia.length > 1">
-              {{ currentIndex + 1 }} / {{ imageMedia.length }}
-            </div>
+            <img class="hero-photo hero-media" [src]="heroPlaceholderUrl" [alt]="property.title" />
           </div>
-          <div class="thumbnail-grid" *ngIf="imageMedia.length > 1">
-            <button *ngFor="let img of imageMedia; let i = index" 
-                    [class.active]="currentIndex === i"
-                    (click)="currentIndex = i; $event.stopPropagation()"
-                    (dblclick)="openZoom(imageFullUrl(img.imageUrl))"
-                    [style.backgroundImage]="'url(' + imageFullUrl(img.imageUrl) + ')'"></button>
-          </div>
-          <div class="video-grid" *ngIf="videoMedia.length">
-            <div class="video-item" *ngFor="let v of videoMedia">
-              <iframe
-                *ngIf="videoPlayerKind(v.imageUrl) === 'embed'"
-                [src]="safeVideoEmbedUrl(v.imageUrl)"
-                title="Property video"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen
-                referrerpolicy="strict-origin-when-cross-origin"
-                loading="lazy"
-              ></iframe>
-              <video
-                *ngIf="videoPlayerKind(v.imageUrl) === 'native'"
-                [src]="nativeVideoUrl(v.imageUrl)"
-                controls
-                playsinline
-                preload="metadata"
-              ></video>
-            </div>
+          <div class="thumbnail-grid" *ngIf="gallerySlides.length > 1">
+            <button
+              type="button"
+              *ngFor="let slide of gallerySlides; let i = index"
+              [class.active]="galleryIndex === i"
+              (click)="galleryIndex = i; $event.stopPropagation()"
+              (dblclick)="slide.kind === 'photo' && openZoom(imageFullUrl(slide.sourceUrl))"
+            >
+              <img [src]="slideThumbUrl(slide)" alt="" loading="lazy" />
+              <span class="thumb-video-icon" *ngIf="slide.kind !== 'photo'" aria-hidden="true">▶</span>
+            </button>
           </div>
         </div>
         <div class="zoom-overlay" *ngIf="zoomOpen" (click)="closeZoom()">
@@ -290,10 +308,16 @@ interface SiteVisitDto {
             <h3 id="pv-book-title">Book Site Visit</h3>
             <button type="button" class="pv-dialog-close" (click)="closeBookVisitDialog()" aria-label="Close">×</button>
           </div>
-          <form (ngSubmit)="submitVisit()" class="pv-dialog-body">
-            <div class="form-group">
-              <label>Preferred Date & Time</label>
-              <input type="datetime-local" [(ngModel)]="visitDate" name="visitDate" required />
+          <form (ngSubmit)="submitVisit()" class="pv-dialog-body pv-dialog-form">
+            <div class="form-group pv-datetime-block">
+              <div class="pv-date-field">
+                <label for="pv-visit-date">Date</label>
+                <input id="pv-visit-date" type="date" [(ngModel)]="visitDateOnly" name="visitDateOnly" required />
+              </div>
+              <div class="pv-time-field">
+                <label for="pv-visit-time">Time</label>
+                <input id="pv-visit-time" type="time" [(ngModel)]="visitTimeOnly" name="visitTimeOnly" step="300" required />
+              </div>
             </div>
             <div class="form-group">
               <label>Additional Notes (Optional)</label>
@@ -322,10 +346,16 @@ interface SiteVisitDto {
             <h3 id="pv-reschedule-title">Reschedule Site Visit</h3>
             <button type="button" class="pv-dialog-close" (click)="closeRescheduleVisitDialog()" aria-label="Close">×</button>
           </div>
-          <form (ngSubmit)="submitReschedule()" class="pv-dialog-body">
-            <div class="form-group">
-              <label>New Date & Time</label>
-              <input type="datetime-local" [(ngModel)]="rescheduleDate" name="rescheduleDate" required />
+          <form (ngSubmit)="submitReschedule()" class="pv-dialog-body pv-dialog-form">
+            <div class="form-group pv-datetime-block">
+              <div class="pv-date-field">
+                <label for="pv-reschedule-date">Date</label>
+                <input id="pv-reschedule-date" type="date" [(ngModel)]="rescheduleDateOnly" name="rescheduleDateOnly" required />
+              </div>
+              <div class="pv-time-field">
+                <label for="pv-reschedule-time">Time</label>
+                <input id="pv-reschedule-time" type="time" [(ngModel)]="rescheduleTimeOnly" name="rescheduleTimeOnly" step="300" required />
+              </div>
             </div>
             <div class="pv-dialog-actions">
               <button type="button" class="btn btn-outline" (click)="closeRescheduleVisitDialog()">Cancel</button>
@@ -422,13 +452,26 @@ interface SiteVisitDto {
       box-shadow: var(--shadow-xl);
       border: 2px solid var(--border-light);
     }
-    .main-image img {
+    .main-image .hero-media {
       width: 100%;
       height: 100%;
       object-fit: cover;
+    }
+    .main-image .hero-photo,
+    .main-image .hero-embed,
+    .main-image .hero-video {
+      position: absolute;
+      inset: 0;
+    }
+    .main-image .hero-embed,
+    .main-image .hero-video {
+      object-fit: contain;
+      background: #0f172a;
+    }
+    .main-image .hero-photo {
       transition: transform 0.4s;
     }
-    .main-image:hover img {
+    .main-image:hover .hero-photo {
       transform: scale(1.02);
     }
     .gallery-nav {
@@ -446,7 +489,7 @@ interface SiteVisitDto {
       align-items: center;
       justify-content: center;
       transition: var(--transition);
-      z-index: 2;
+      z-index: 5;
     }
     .gallery-nav:hover {
       background: white;
@@ -464,12 +507,13 @@ interface SiteVisitDto {
       border-radius: var(--radius-sm);
       font-size: 0.875rem;
       backdrop-filter: blur(4px);
+      z-index: 5;
     }
     .verified-badge {
       position: absolute;
       top: 1rem;
       left: 1rem;
-      z-index: 3;
+      z-index: 6;
       background: var(--verified-gradient);
       color: #fff;
       padding: 0.35rem 0.7rem;
@@ -484,41 +528,40 @@ interface SiteVisitDto {
       gap: 0.75rem;
     }
     .thumbnail-grid button {
+      position: relative;
       aspect-ratio: 1;
       border: 3px solid transparent;
       border-radius: var(--radius-sm);
-      background-size: cover;
-      background-position: center;
+      padding: 0;
+      overflow: hidden;
       cursor: pointer;
       transition: var(--transition);
       opacity: 0.7;
+      background: var(--bg-secondary);
+    }
+    .thumbnail-grid button img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .thumb-video-icon {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      color: #fff;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.35);
     }
     .thumbnail-grid button:hover,
     .thumbnail-grid button.active {
       opacity: 1;
       border-color: var(--primary);
       transform: scale(1.05);
-    }
-    .video-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 0.5rem;
-    }
-    .video-item {
-      position: relative;
-      aspect-ratio: 16 / 9;
-      border: 1px solid var(--border);
-      overflow: hidden;
-      background: #0f172a;
-    }
-    .video-item video,
-    .video-item iframe {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: 0;
-      object-fit: contain;
     }
     .property-content {
       display: grid;
@@ -712,9 +755,11 @@ interface SiteVisitDto {
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      width: min(92vw, 520px);
-      max-height: min(88vh, 720px);
-      overflow: auto;
+      width: min(96vw, 640px);
+      max-height: min(92vh, 860px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
       pointer-events: auto;
       background: var(--surface);
       color: var(--text);
@@ -724,6 +769,7 @@ interface SiteVisitDto {
       z-index: 1;
     }
     .pv-dialog-header {
+      flex-shrink: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -756,7 +802,42 @@ interface SiteVisitDto {
       color: var(--text);
     }
     .pv-dialog-body {
-      padding: 1.5rem;
+      padding: 1.5rem 1.75rem;
+    }
+    .pv-dialog-body.pv-dialog-form {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding-bottom: 2rem;
+    }
+    .pv-datetime-block {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem 1.25rem;
+      margin-bottom: 0.25rem;
+    }
+    .pv-date-field label,
+    .pv-time-field label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+    .pv-date-field input,
+    .pv-time-field input {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 2.75rem;
+      padding: 0.5rem 0.65rem;
+      font-size: 1rem;
+    }
+    @media (max-width: 520px) {
+      .pv-datetime-block {
+        grid-template-columns: 1fr;
+      }
     }
     .pv-dialog-actions {
       display: flex;
@@ -764,7 +845,11 @@ interface SiteVisitDto {
       gap: 0.75rem;
       justify-content: flex-end;
       align-items: center;
-      margin-top: 1.5rem;
+      margin-top: auto;
+      padding-top: 1.25rem;
+      flex-shrink: 0;
+      border-top: 1px solid var(--border-light);
+      background: var(--surface);
     }
     .loading-skeleton, .not-found {
       padding: 4rem 0;
@@ -843,17 +928,20 @@ export class PropertyDetailComponent implements OnInit {
   property: Property | null = null;
   loading = true;
   loadError = '';
-  currentIndex = 0;
+  gallerySlides: GallerySlide[] = [];
+  galleryIndex = 0;
   inWatchlist = false;
   /** Avoid global error toast when optional "my visit" is absent (404 legacy) or 204. */
   private readonly silentOptionalVisitCtx = new HttpContext().set(SILENT_NOT_FOUND, true);
 
   readonly bookVisitOpen = signal(false);
-  visitDate = '';
+  visitDateOnly = '';
+  visitTimeOnly = '';
   visitNotes = '';
   myVisitForProperty: SiteVisitDto | null = null;
   readonly rescheduleVisitOpen = signal(false);
-  rescheduleDate = '';
+  rescheduleDateOnly = '';
+  rescheduleTimeOnly = '';
   rescheduling = false;
   zoomOpen = false;
   zoomUrl = '';
@@ -922,8 +1010,12 @@ export class PropertyDetailComponent implements OnInit {
     return !!this.auth.user() && !!this.auth.getToken();
   }
 
-  get currentImageFullUrl(): string {
-    return this.imageFullUrl(this.currentImage);
+  readonly heroPlaceholderUrl = 'https://placehold.co/1200x675?text=Property';
+
+  get currentSlide(): GallerySlide | null {
+    if (!this.gallerySlides.length) return null;
+    const i = Math.min(Math.max(0, this.galleryIndex), this.gallerySlides.length - 1);
+    return this.gallerySlides[i];
   }
 
   ngOnInit() {
@@ -942,6 +1034,7 @@ export class PropertyDetailComponent implements OnInit {
           this.property = p as Property | null;
           this.loading = false;
           this.loadError = this.property ? '' : 'Invalid response from server.';
+          this.rebuildGallery();
           if (this.hasActiveSession() && this.property) {
             this.api.get<{ inWatchlist: boolean }>('/properties/' + id + '/watchlist').subscribe({
               next: (r) => {
@@ -984,32 +1077,55 @@ export class PropertyDetailComponent implements OnInit {
       });
   }
 
-  get currentImage(): string {
-    if (!this.imageMedia.length) return 'https://placehold.co/1200x675?text=Property';
-    return this.imageMedia[this.currentIndex]?.imageUrl || this.imageMedia[0].imageUrl;
+  rebuildGallery(): void {
+    this.gallerySlides = buildGallerySlides(this.property?.images);
+    this.galleryIndex = 0;
   }
 
-  get imageMedia() {
-    return (this.property?.images || []).filter(i => !i.mediaType || i.mediaType === 'IMAGE');
+  slideThumbUrl(slide: GallerySlide): string {
+    if (slide.kind === 'photo') return this.imageFullUrl(slide.sourceUrl);
+    const poster = resolveVideoCardPosterUrl(slide.sourceUrl, this.config.apiUrl);
+    return poster || 'https://placehold.co/200x200/0f172a/94a3b8?text=%E2%96%B6';
   }
 
-  get videoMedia() {
-    return (this.property?.images || []).filter(i => i.mediaType === 'VIDEO');
+  prevGallery(): void {
+    if (this.gallerySlides.length < 2) return;
+    this.galleryIndex = (this.galleryIndex - 1 + this.gallerySlides.length) % this.gallerySlides.length;
+  }
+
+  nextGallery(): void {
+    if (this.gallerySlides.length < 2) return;
+    this.galleryIndex = (this.galleryIndex + 1) % this.gallerySlides.length;
+  }
+
+  private pad2(n: number): string {
+    return String(n).padStart(2, '0');
+  }
+
+  private defaultDateTimeParts(d = new Date()): { ymd: string; hm: string } {
+    return {
+      ymd: `${d.getFullYear()}-${this.pad2(d.getMonth() + 1)}-${this.pad2(d.getDate())}`,
+      hm: `${this.pad2(d.getHours())}:${this.pad2(d.getMinutes())}`,
+    };
+  }
+
+  private combineLocalDateTimeToIso(dateOnly: string, timeOnly: string): string | null {
+    const d = (dateOnly || '').trim();
+    const t = (timeOnly || '').trim();
+    if (!d || !t) return null;
+    const [y, mo, day] = d.split('-').map((x) => parseInt(x, 10));
+    const timeParts = t.split(':');
+    const h = parseInt(timeParts[0] || '0', 10);
+    const mi = parseInt(timeParts[1] || '0', 10);
+    if (!y || !mo || !day || Number.isNaN(h) || Number.isNaN(mi)) return null;
+    const dt = new Date(y, mo - 1, day, h, mi, 0, 0);
+    if (Number.isNaN(dt.getTime())) return null;
+    return dt.toISOString();
   }
 
   get amenitiesList(): string[] {
     if (!this.property?.amenities) return [];
     return this.property.amenities.split(',').map(a => a.trim()).filter(a => a);
-  }
-
-  prevImage() {
-    if (!this.imageMedia.length) return;
-    this.currentIndex = (this.currentIndex - 1 + this.imageMedia.length) % this.imageMedia.length;
-  }
-
-  nextImage() {
-    if (!this.imageMedia.length) return;
-    this.currentIndex = (this.currentIndex + 1) % this.imageMedia.length;
   }
 
   bookVisit() {
@@ -1021,6 +1137,9 @@ export class PropertyDetailComponent implements OnInit {
       this.toast.info('You already have a site visit for this property. Use Reschedule to change the date.');
       return;
     }
+    const { ymd, hm } = this.defaultDateTimeParts();
+    this.visitDateOnly = ymd;
+    this.visitTimeOnly = hm;
     this.ngZone.run(() => {
       this.bookVisitOpen.set(true);
       this.cdr.detectChanges();
@@ -1028,18 +1147,23 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   submitVisit() {
-    if (!this.property || !this.visitDate) return;
+    if (!this.property) return;
     if (this.myVisitForProperty) {
       this.toast.info('You already have an active site visit request for this property.');
       this.bookVisitOpen.set(false);
       return;
     }
-    const scheduledAt = new Date(this.visitDate).toISOString();
+    const scheduledAt = this.combineLocalDateTimeToIso(this.visitDateOnly, this.visitTimeOnly);
+    if (!scheduledAt) {
+      this.toast.warning('Please choose a valid date and time.');
+      return;
+    }
     this.api.post<SiteVisitDto>('/sitevisits', { propertyId: this.property.id, scheduledAt, userNotes: this.visitNotes }).subscribe({
       next: (v) => {
         this.toast.success('Site visit requested successfully');
         this.bookVisitOpen.set(false);
-        this.visitDate = '';
+        this.visitDateOnly = '';
+        this.visitTimeOnly = '';
         this.visitNotes = '';
         this.myVisitForProperty = v;
       },
@@ -1056,9 +1180,9 @@ export class PropertyDetailComponent implements OnInit {
 
   openReschedule() {
     if (!this.myVisitForProperty) return;
-    const d = new Date(this.myVisitForProperty.scheduledAt);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    this.rescheduleDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const { ymd, hm } = this.defaultDateTimeParts(new Date(this.myVisitForProperty.scheduledAt));
+    this.rescheduleDateOnly = ymd;
+    this.rescheduleTimeOnly = hm;
     this.ngZone.run(() => {
       this.rescheduleVisitOpen.set(true);
       this.cdr.detectChanges();
@@ -1066,14 +1190,19 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   submitReschedule() {
-    if (!this.myVisitForProperty || !this.rescheduleDate) return;
+    if (!this.myVisitForProperty) return;
+    const scheduledAt = this.combineLocalDateTimeToIso(this.rescheduleDateOnly, this.rescheduleTimeOnly);
+    if (!scheduledAt) {
+      this.toast.warning('Please choose a valid date and time.');
+      return;
+    }
     this.rescheduling = true;
-    const scheduledAt = new Date(this.rescheduleDate).toISOString();
     this.api.put<SiteVisitDto>(`/sitevisits/${this.myVisitForProperty.id}/reschedule`, { scheduledAt }).subscribe({
       next: (v) => {
         this.myVisitForProperty = v;
         this.rescheduleVisitOpen.set(false);
-        this.rescheduleDate = '';
+        this.rescheduleDateOnly = '';
+        this.rescheduleTimeOnly = '';
         this.rescheduling = false;
         this.toast.success('Visit rescheduled successfully.');
       },

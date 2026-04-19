@@ -78,109 +78,22 @@ import { CarouselModule } from 'ngx-bootstrap/carousel';
       </div>
     </section>
 
-     <div class="row nomargin">
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/poplogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">POP service</h5>
-		<p> Modern POP (Plaster of Paris) designs blend architectural elegance with functional lighting to transform any ceiling into a masterpiece.
-</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/paintlogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Paint service</h5 >
-		<p> The Professional Touch<br/>
-Transforming spaces with a stroke of perfection. Quality finishes that stand the test of time.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/lightlogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Electrical service</h5>
-		<p> Professional & warm
-<br/>
-We craft lighting solutions that transform ordinary spaces into extraordinary experiences.
-From concept to installation, Lighting service brings brilliance to every corner.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/constructionlogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Construction & ReConstruction service</h5 >
-		<p> Strong & reassuring
-<br/>
-Reconstruction service restores what matters most — your space, your comfort, your peace of mind.
-From damage to done, we rebuild with precision, care, and craftsmanship you can trust.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  </div>
-  <div class="row nomargin"> 
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/doorlogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Door and Framing</h5 >
-		<p> Bold & confident
-<br/>
-We deliver precision-built doors and framing solutions that define the character of every space.
-Door and Framing service — where strength, style, and craftsmanship meet at every threshold.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/tileslogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Tiles service</h5 >
-		<p> Elegant & aspirational
-<br/>
-Tiles service brings together exquisite design and superior quality to transform every surface into a statement.
-From floors to walls, we lay the foundation of spaces that inspire and endure.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
- 
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/hardwarelogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Hardware service</h5 >
-		<p>  Strong & reliable
-<br/>
-Hardware service supplies and installs premium fittings, fixtures, and accessories that hold every space together.
-From the smallest hinge to the grandest finish, we deliver quality you can see and feel.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/fabrication.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Fabrication service</h5 >
-		<p>  Strong & industrial
-<br/>
-Fabrication service delivers precision-engineered metal and structural solutions built to the highest standards of quality and durability.
-From concept to completion, we fabricate with skill, accuracy, and craftsmanship that stands the test of time.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  </div>
-  <div class="row nomargin"> 
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/furniturelogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Furniture service</h5 >
-		<p> Furniture service creates beautifully crafted pieces that bring warmth, character, and purpose to every living space.
-From custom designs to timeless classics, we build furniture that tells your story for generations to come.
-</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-
-  </div>
+    <section class="services-section" aria-label="Home improvement services">
+      <div class="container service-cards-wrap">
+        <h2 class="services-heading">Home services</h2>
+        <p class="services-sub">Quality partners for POP, paint, electrical, construction, and more — request a quote in one tap.</p>
+        <div class="service-cards-grid">
+          <article class="service-card" *ngFor="let s of services">
+            <div class="service-card-inner">
+              <img [src]="'assets/images/' + s.img" [alt]="s.title" class="service-card-icon" width="56" height="56" loading="lazy" />
+              <h3 class="service-card-title">{{ s.title }}</h3>
+              <p class="service-card-desc">{{ s.description }}</p>
+              <button type="button" class="btn btn-primary btn-sm service-card-cta" (click)="openQuotePopup()">Get Quote</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
   
   <div class="popup" id="popupid">
@@ -679,42 +592,88 @@ From custom designs to timeless classics, we build furniture that tells your sto
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
 }
-.logoservice{
-	width: 50px;
-	height: 50px;
-}
-
-
-
 .form-label{
 	color: var(--text-muted);
 }
-.servicecards{
-	margin: 0;
+
+.services-section {
+  padding: 2.5rem 0 2rem;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--surface) 45%, var(--bg) 100%);
+  border-block: 1px solid var(--border-light);
+}
+.service-cards-wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.services-heading {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 800;
+  text-align: center;
+  margin: 0 0 0.5rem;
+  color: var(--text);
+}
+.services-sub {
+  text-align: center;
+  color: var(--text-muted);
+  max-width: 42rem;
+  margin: 0 auto 1.75rem;
+  font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  line-height: 1.55;
+}
+.service-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+.service-card {
+  display: flex;
+  min-width: 0;
+}
+.service-card-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-	padding: 1.25rem;
+  padding: 1.25rem 1.125rem 1.35rem;
   text-align: center;
   box-shadow: var(--shadow);
   transition: var(--transition);
 }
-.servicecards:hover {
+.service-card-inner:hover {
   border-color: var(--primary-light);
   box-shadow: var(--shadow-md);
 }
-.servicecards h5 {
+.service-card-icon {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.service-card-title {
+  margin: 0.75rem 0 0.5rem;
   color: var(--text);
+  font-size: clamp(1rem, 2vw, 1.125rem);
   font-weight: 700;
-  margin: 0.5rem 0;
+  line-height: 1.25;
 }
-.servicecards p {
+.service-card-desc {
+  flex: 1 1 auto;
+  margin: 0 0 1rem;
   color: var(--text-secondary);
-  font-size: 0.9375rem;
+  font-size: clamp(0.8125rem, 1.4vw, 0.9375rem);
   line-height: 1.5;
+  text-wrap: pretty;
 }
-.servicecards input[type="button"] {
-  margin-top: 0.75rem;
+.service-card-cta {
+  margin-top: auto;
+  align-self: stretch;
+  max-width: 200px;
 }
 
 .servicename{
@@ -734,20 +693,6 @@ width : 80%;
       text-align: center;
       padding: 3rem;
       color: var(--text-muted);
-    }
-    .row.nomargin {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 1.25rem;
-      margin: 0 auto 1.5rem;
-      padding: 0 1rem;
-      max-width: 1280px;
-      box-sizing: border-box;
-    }
-    .row.nomargin [class*="col-"] {
-      width: 100%;
-      max-width: 100%;
-      padding: 0;
     }
     .carouselimg img {
       transition: transform 0.25s ease;
@@ -777,8 +722,69 @@ export class HomeComponent implements OnInit {
   searchType = 'buy';
   searchQuery = '';
 
+  readonly services: { img: string; title: string; description: string }[] = [
+    {
+      img: 'poplogo.png',
+      title: 'POP service',
+      description:
+        'Modern POP (Plaster of Paris) designs blend architectural elegance with functional lighting to transform any ceiling into a masterpiece.',
+    },
+    {
+      img: 'paintlogo.png',
+      title: 'Paint service',
+      description:
+        'The professional touch — transforming spaces with a stroke of perfection. Quality finishes that stand the test of time.',
+    },
+    {
+      img: 'lightlogo.png',
+      title: 'Electrical service',
+      description:
+        'We craft lighting solutions that transform ordinary spaces into extraordinary experiences. From concept to installation, brilliance in every corner.',
+    },
+    {
+      img: 'constructionlogo.png',
+      title: 'Construction & reconstruction',
+      description:
+        'Reconstruction restores what matters most — your space, your comfort, your peace of mind. We rebuild with precision, care, and craftsmanship you can trust.',
+    },
+    {
+      img: 'doorlogo.png',
+      title: 'Door and framing',
+      description:
+        'Precision-built doors and framing that define the character of every space — strength, style, and craftsmanship at every threshold.',
+    },
+    {
+      img: 'tileslogo.png',
+      title: 'Tiles service',
+      description:
+        'Exquisite design and superior quality for floors and walls — surfaces that inspire and endure.',
+    },
+    {
+      img: 'hardwarelogo.png',
+      title: 'Hardware service',
+      description:
+        'Premium fittings, fixtures, and accessories — from the smallest hinge to the grandest finish, quality you can see and feel.',
+    },
+    {
+      img: 'fabrication.png',
+      title: 'Fabrication service',
+      description:
+        'Precision-engineered metal and structural solutions — fabricated with skill, accuracy, and durability that stands the test of time.',
+    },
+    {
+      img: 'furniturelogo.png',
+      title: 'Furniture service',
+      description:
+        'Beautifully crafted pieces for warmth, character, and purpose — from custom designs to timeless classics built for generations.',
+    },
+  ];
 
   constructor(private api: ApiService, private router: Router, private cdr: ChangeDetectorRef) {}
+
+  openQuotePopup(): void {
+    const w = window as unknown as { showpopup?: () => void };
+    w.showpopup?.();
+  }
 
    slides: {image: string; text?: string}[] =  [
     {image: 'assets/images/nature/5.jpg'},

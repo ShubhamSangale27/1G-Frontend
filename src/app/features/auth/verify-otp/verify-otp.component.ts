@@ -1,10 +1,13 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { HttpContext, HttpErrorResponse } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService, AuthResponse } from '../../../core/services/auth.service';
+import { SKIP_GLOBAL_ERROR_TOAST } from '../../../core/http-context.tokens';
 import { ToastrService } from 'ngx-toastr';
+import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.util';
 
 const PENDING_VERIFY_KEY = 'pendingVerification';
 
@@ -105,6 +108,7 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
   });
   submitting = false;
   resending = false;
+  private readonly skipGlobalErrorToast = new HttpContext().set(SKIP_GLOBAL_ERROR_TOAST, true);
 
   constructor(
     private fb: FormBuilder,
@@ -140,11 +144,15 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
     if (this.form.invalid || !this.email || !this.mobile) return;
     const { mobileOtp } = this.form.getRawValue();
     this.submitting = true;
-    this.api.post<AuthResponse>('/auth/verify-signup', {
-      email: this.email,
-      mobile: this.mobile,
-      mobileOtp,
-    }).subscribe({
+    this.api.post<AuthResponse>(
+      '/auth/verify-signup',
+      {
+        email: this.email,
+        mobile: this.mobile,
+        mobileOtp,
+      },
+      this.skipGlobalErrorToast,
+    ).subscribe({
       next: (res) => {
         sessionStorage.removeItem(PENDING_VERIFY_KEY);
         this.auth.completeSignup(res);
@@ -153,8 +161,11 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
           this.router.navigate(['/dashboard']);
         }, 0);
       },
-      error: (err) => {
-        const msg = err.error?.message || 'Verification failed. Check OTP and try again.';
+      error: (err: unknown) => {
+        const msg =
+          err instanceof HttpErrorResponse
+            ? extractHttpErrorMessage(err)
+            : 'Verification failed. Check OTP and try again.';
         setTimeout(() => {
           this.submitting = false;
           this.toast.error(msg);
@@ -190,9 +201,13 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
         this.startResendCountdown();
         this.toast.success(res.message || 'OTP resent successfully.');
       },
-      error: (err) => {
+      error: (err: unknown) => {
         this.resending = false;
-        this.toast.error(err.error?.message || 'Unable to resend OTP right now.');
+        const msg =
+          err instanceof HttpErrorResponse
+            ? extractHttpErrorMessage(err)
+            : 'Unable to resend OTP right now.';
+        this.toast.error(msg);
       },
     });
   }

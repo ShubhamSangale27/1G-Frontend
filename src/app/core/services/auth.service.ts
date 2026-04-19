@@ -1,7 +1,10 @@
 import { Injectable, signal, computed } from '@angular/core';
+import { HttpContext, HttpErrorResponse } from '@angular/common/http';
+import { SKIP_GLOBAL_ERROR_TOAST } from '../http-context.tokens';
 import { Router } from '@angular/router';
 import { ApiService } from './api.service';
 import { ToastrService } from 'ngx-toastr';
+import { extractHttpErrorMessage } from '../utils/http-error-message.util';
 
 export interface User {
   id: number;
@@ -38,6 +41,8 @@ export class AuthService {
   user = this.userSignal.asReadonly();
   isLoggedIn = computed(() => !!this.userSignal());
 
+  private readonly skipGlobalErrorToast = new HttpContext().set(SKIP_GLOBAL_ERROR_TOAST, true);
+
   constructor(
     private api: ApiService,
     private router: Router,
@@ -48,7 +53,7 @@ export class AuthService {
   }
 
   login(email: string, password: string) {
-    return this.api.post<AuthResponse>('/auth/login', { email, password }).subscribe({
+    return this.api.post<AuthResponse>('/auth/login', { email, password }, this.skipGlobalErrorToast).subscribe({
       next: (res) => {
         this.setSession(res);
         setTimeout(() => {
@@ -56,12 +61,15 @@ export class AuthService {
           this.router.navigate(['/dashboard']);
         }, 0);
       },
-      error: () => {},
+      error: (err: unknown) => {
+        const msg = err instanceof HttpErrorResponse ? extractHttpErrorMessage(err) : 'Sign in failed. Please try again.';
+        this.toast.error(msg);
+      },
     });
   }
 
   signup(email: string, password: string, fullName: string, mobile: string) {
-    return this.api.post<SignupResponse>('/auth/signup', { email, password, fullName, mobile }).subscribe({
+    return this.api.post<SignupResponse>('/auth/signup', { email, password, fullName, mobile }, this.skipGlobalErrorToast).subscribe({
       next: (res) => {
         sessionStorage.setItem('pendingVerification', JSON.stringify({
           email: res.email,
@@ -76,12 +84,15 @@ export class AuthService {
           this.router.navigate(['/verify-otp']);
         }, 0);
       },
-      error: () => {},
+      error: (err: unknown) => {
+        const msg = err instanceof HttpErrorResponse ? extractHttpErrorMessage(err) : 'Could not create your account. Please try again.';
+        this.toast.error(msg);
+      },
     });
   }
 
   resendSignupOtp(email: string, mobile: string) {
-    return this.api.post<SignupResponse>('/auth/resend-signup-otp', { email, mobile });
+    return this.api.post<SignupResponse>('/auth/resend-signup-otp', { email, mobile }, this.skipGlobalErrorToast);
   }
 
   logout() {

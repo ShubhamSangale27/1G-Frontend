@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,13 @@ import { Property } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { getStateNames, getCitiesForState } from '../../core/data/indian-locations';
 import { PropertyMapComponent } from '../../shared/property-map/property-map.component';
-import { resolvePropertyImageUrl, resolvePropertyVideoUrl } from '../../core/utils/image-url.util';
+import {
+  resolvePropertyImageUrl,
+  getPropertyVideoPlayerKind,
+  resolveVideoEmbedUrl,
+  resolveNativeVideoUrl,
+  type PropertyVideoPlayerKind,
+} from '../../core/utils/image-url.util';
 
 @Component({
   selector: 'app-property-form',
@@ -173,12 +180,28 @@ import { resolvePropertyImageUrl, resolvePropertyVideoUrl } from '../../core/uti
                 </div>
                 <button type="button" class="btn btn-primary add-url-btn" (click)="addMediaByUrl()">Add URL</button>
               </div>
-              <small class="images-hint">Paste image/video URLs and click Add URL. For Google Drive links, set sharing to &quot;Anyone with the link&quot;. Drive videos are played via embedded preview.</small>
+              <small class="images-hint">Paste image or video URLs and click Add URL. YouTube (watch or youtu.be) and Google Drive file links play in the app. Drive: use a file link and set sharing to &quot;Anyone with the link&quot;. Direct .mp4/.webm URLs use the built-in player.</small>
               <div class="image-preview-row" *ngFor="let media of mediaItems; let i = index">
                 <img *ngIf="media.mediaType === 'IMAGE'" [src]="imagePreviewUrl(media.imageUrl)" alt="Preview" class="image-preview" (error)="onImageError($event)" />
                 <div *ngIf="media.mediaType === 'VIDEO'" class="video-preview-wrap">
-                  <video *ngIf="!isGoogleDriveMedia(media.imageUrl)" [src]="videoPreviewUrl(media.imageUrl)" class="video-preview" controls preload="metadata"></video>
-                  <iframe *ngIf="isGoogleDriveMedia(media.imageUrl)" [src]="videoPreviewUrl(media.imageUrl)" class="video-preview" allow="autoplay" loading="lazy"></iframe>
+                  <iframe
+                    *ngIf="videoPlayerKind(media.imageUrl) === 'embed'"
+                    [src]="safeVideoEmbedUrl(media.imageUrl)"
+                    class="video-preview"
+                    title="Video preview"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    loading="lazy"
+                  ></iframe>
+                  <video
+                    *ngIf="videoPlayerKind(media.imageUrl) === 'native'"
+                    [src]="nativeVideoPreviewUrl(media.imageUrl)"
+                    class="video-preview"
+                    controls
+                    playsinline
+                    preload="metadata"
+                  ></video>
                 </div>
                 <div class="image-actions">
                   <span class="badge badge-type-inline">{{ media.mediaType }}</span>
@@ -349,17 +372,21 @@ import { resolvePropertyImageUrl, resolvePropertyVideoUrl } from '../../core/uti
       align-items: center;
     }
     .video-preview-wrap {
-      width: 120px;
-      height: 80px;
+      width: 200px;
+      max-width: 100%;
+      aspect-ratio: 16 / 9;
       border-radius: var(--radius-sm);
       overflow: hidden;
-      background: var(--bg);
+      background: #0f172a;
+      position: relative;
     }
     .video-preview {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       border: 0;
-      object-fit: cover;
+      object-fit: contain;
     }
     .badge-type-inline {
       background: var(--bg);
@@ -405,7 +432,8 @@ export class PropertyFormComponent implements OnInit {
     public auth: AuthService,
     private router: Router,
     private route: ActivatedRoute,
-    private toast: ToastrService
+    private toast: ToastrService,
+    private sanitizer: DomSanitizer
   ) {
     this.form = this.fb.group({
       title: ['', Validators.required],
@@ -493,12 +521,17 @@ export class PropertyFormComponent implements OnInit {
     return resolvePropertyImageUrl(url, this.config.apiUrl);
   }
 
-  videoPreviewUrl(url: string): string {
-    return resolvePropertyVideoUrl(url, this.config.apiUrl);
+  videoPlayerKind(url: string): PropertyVideoPlayerKind {
+    return getPropertyVideoPlayerKind(url);
   }
 
-  isGoogleDriveMedia(url: string): boolean {
-    return /drive\.google\.com/i.test(url || '');
+  safeVideoEmbedUrl(url: string): SafeResourceUrl {
+    const embed = resolveVideoEmbedUrl(url);
+    return this.sanitizer.bypassSecurityTrustResourceUrl(embed || 'about:blank');
+  }
+
+  nativeVideoPreviewUrl(url: string): string {
+    return resolveNativeVideoUrl(url, this.config.apiUrl);
   }
 
   onImageError(event: Event) {

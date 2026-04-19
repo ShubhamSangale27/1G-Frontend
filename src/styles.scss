@@ -322,3 +322,9 @@ a {
     font-size: 0.8125rem;
   }
 }
+
+/* ngx-toastr above fixed loan/WhatsApp widgets (z-index 99) and modal overlays */
+#toast-container,
+.toast-container {
+  z-index: 100050 !important;
+}

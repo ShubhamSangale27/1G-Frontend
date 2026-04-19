@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Property } from '../../core/models/property.model';
 import { ConfigService } from '../../core/services/config.service';
-import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import { resolvePropertyImageUrl, resolveVideoCardPosterUrl } from '../../core/utils/image-url.util';
 
 @Component({
   selector: 'app-property-card',
@@ -19,7 +19,7 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
           <span class="badge badge-premium" *ngIf="property.isPremium">⭐ Premium</span>
         </div>
         <div class="img-count" *ngIf="property.images && property.images.length > 1">
-          📷 {{ property.images.length }}
+          {{ mediaGalleryLabel }}
         </div>
       </div>
       <div class="body">
@@ -216,9 +216,22 @@ export class PropertyCardComponent {
   constructor(private config: ConfigService) {}
 
   get imgUrl(): string {
-    const imgs = (this.property.images || []).filter(i => !i.mediaType || i.mediaType === 'IMAGE');
+    const all = this.property.images || [];
+    const imgs = all.filter((i) => !i.mediaType || i.mediaType === 'IMAGE');
     if (imgs.length) return resolvePropertyImageUrl(imgs[0].imageUrl, this.config.apiUrl);
+    const videos = all.filter((i) => i.mediaType === 'VIDEO');
+    if (videos.length) {
+      const poster = resolveVideoCardPosterUrl(videos[0].imageUrl, this.config.apiUrl);
+      if (poster) return poster;
+    }
     return 'https://placehold.co/400x250?text=Property';
+  }
+
+  get mediaGalleryLabel(): string {
+    const all = this.property.images || [];
+    const n = all.length;
+    const hasVideo = all.some((i) => i.mediaType === 'VIDEO');
+    return `${hasVideo ? '▶' : '📷'} ${n}`;
   }
 
   onImgError(event: Event) {

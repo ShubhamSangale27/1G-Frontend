@@ -1,4 +1,5 @@
 import { Component, OnInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -9,7 +10,13 @@ import { Property } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { PropertyMapComponent } from '../../shared/property-map/property-map.component';
-import { resolvePropertyImageUrl, resolvePropertyVideoUrl, isGoogleDriveUrl } from '../../core/utils/image-url.util';
+import {
+  resolvePropertyImageUrl,
+  getPropertyVideoPlayerKind,
+  resolveVideoEmbedUrl,
+  resolveNativeVideoUrl,
+  type PropertyVideoPlayerKind,
+} from '../../core/utils/image-url.util';
 
 /** User's active site visit for this property (PENDING_ASSIGNMENT or ASSIGNED). Used to show Reschedule instead of Book. */
 interface SiteVisitDto {
@@ -84,8 +91,22 @@ interface SiteVisitDto {
           </div>
           <div class="video-grid" *ngIf="videoMedia.length">
             <div class="video-item" *ngFor="let v of videoMedia">
-              <iframe *ngIf="isDriveVideo(v.imageUrl)" [src]="videoFullUrl(v.imageUrl)" allow="autoplay" loading="lazy"></iframe>
-              <video *ngIf="!isDriveVideo(v.imageUrl)" [src]="videoFullUrl(v.imageUrl)" controls preload="metadata"></video>
+              <iframe
+                *ngIf="videoPlayerKind(v.imageUrl) === 'embed'"
+                [src]="safeVideoEmbedUrl(v.imageUrl)"
+                title="Property video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                referrerpolicy="strict-origin-when-cross-origin"
+                loading="lazy"
+              ></iframe>
+              <video
+                *ngIf="videoPlayerKind(v.imageUrl) === 'native'"
+                [src]="nativeVideoUrl(v.imageUrl)"
+                controls
+                playsinline
+                preload="metadata"
+              ></video>
             </div>
           </div>
         </div>
@@ -464,14 +485,20 @@ interface SiteVisitDto {
       gap: 0.5rem;
     }
     .video-item {
+      position: relative;
+      aspect-ratio: 16 / 9;
       border: 1px solid var(--border);
       overflow: hidden;
-      background: #000;
+      background: #0f172a;
     }
     .video-item video,
     .video-item iframe {
+      position: absolute;
+      inset: 0;
       width: 100%;
-      min-height: 180px;
+      height: 100%;
+      border: 0;
+      object-fit: contain;
     }
     .property-content {
       display: grid;
@@ -798,7 +825,8 @@ export class PropertyDetailComponent implements OnInit {
     private toast: ToastrService,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
-    private router: Router
+    private router: Router,
+    private sanitizer: DomSanitizer
   ) {}
 
   @HostListener('document:keydown.escape')
@@ -810,12 +838,17 @@ export class PropertyDetailComponent implements OnInit {
     return resolvePropertyImageUrl(url, this.config.apiUrl);
   }
 
-  videoFullUrl(url: string): string {
-    return resolvePropertyVideoUrl(url, this.config.apiUrl);
+  videoPlayerKind(url: string): PropertyVideoPlayerKind {
+    return getPropertyVideoPlayerKind(url);
   }
 
-  isDriveVideo(url: string): boolean {
-    return isGoogleDriveUrl(url);
+  safeVideoEmbedUrl(url: string): SafeResourceUrl {
+    const embed = resolveVideoEmbedUrl(url);
+    return this.sanitizer.bypassSecurityTrustResourceUrl(embed || 'about:blank');
+  }
+
+  nativeVideoUrl(url: string): string {
+    return resolveNativeVideoUrl(url, this.config.apiUrl);
   }
 
   openZoom(url: string) {

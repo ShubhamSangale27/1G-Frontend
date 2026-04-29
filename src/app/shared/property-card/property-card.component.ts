@@ -4,11 +4,12 @@ import { CommonModule } from '@angular/common';
 import { Property } from '../../core/models/property.model';
 import { ConfigService } from '../../core/services/config.service';
 import { resolvePropertyImageUrl, resolveVideoCardPosterUrl } from '../../core/utils/image-url.util';
+import { IndianPricePipe } from '../pipes/indian-price.pipe';
 
 @Component({
   selector: 'app-property-card',
   standalone: true,
-  imports: [RouterLink, CommonModule],
+  imports: [RouterLink, CommonModule, IndianPricePipe],
   template: `
     <a [routerLink]="['/property', property.id]" class="card property-card">
       <div class="img-wrap">
@@ -23,7 +24,7 @@ import { resolvePropertyImageUrl, resolveVideoCardPosterUrl } from '../../core/u
         </div>
       </div>
       <div class="body">
-        <div class="price-tag">₹ {{ property.price | number }}</div>
+        <div class="price-tag">{{ property.price | indianPrice }}</div>
         <h3>{{ property.title }}</h3>
         <p class="location">
           <span>📍</span> {{ property.city }}{{ property.locality ? ', ' + property.locality : '' }}

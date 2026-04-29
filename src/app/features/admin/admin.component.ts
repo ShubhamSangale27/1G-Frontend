@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { Property, PageResponse } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
+import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
 
 interface SiteVisitRow {
   id: number;
@@ -39,7 +40,7 @@ interface UserRow {
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, IndianPricePipe],
   template: `
     <div class="admin-page">
       <div class="container">
@@ -99,7 +100,7 @@ interface UserRow {
                 <div class="pending-title">{{ p.title }}</div>
                 <div class="pending-meta">
                   <span>Owner: {{ p.ownerName }}</span>
-                  <span>Price: ₹ {{ p.price | number }}</span>
+                  <span>Price: {{ p.price | indianPrice }}</span>
                   <span>Type: {{ p.propertyType }}</span>
                 </div>
               </div>

@@ -10,6 +10,7 @@ import { Property, PageResponse } from '../../core/models/property.model';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { ToastrService } from 'ngx-toastr';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
 
 interface SiteVisit {
   id: number;
@@ -29,7 +30,7 @@ interface Alert {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, SkeletonLoaderComponent],
+  imports: [CommonModule, FormsModule, RouterLink, SkeletonLoaderComponent, IndianPricePipe],
   template: `
     <div class="dashboard-page">
       <div class="container">
@@ -141,7 +142,7 @@ interface Alert {
                   <div class="property-info">
                     <div class="property-title">{{ p.title }}</div>
                     <div class="property-meta">
-                      <span>₹ {{ p.price | number }}</span>
+                      <span>{{ p.price | indianPrice }}</span>
                       <span class="property-status" [class.status-approved]="p.status === 'APPROVED'"
                             [class.status-pending]="p.status === 'PENDING_APPROVAL'"
                             [class.status-rejected]="p.status === 'REJECTED'">

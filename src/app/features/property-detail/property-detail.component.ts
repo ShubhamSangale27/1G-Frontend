@@ -11,6 +11,7 @@ import { Property } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { PropertyMapComponent } from '../../shared/property-map/property-map.component';
+import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
 import {
   resolvePropertyImageUrl,
   getPropertyVideoPlayerKind,
@@ -32,7 +33,7 @@ interface SiteVisitDto {
 @Component({
   selector: 'app-property-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, SkeletonLoaderComponent, PropertyMapComponent],
+  imports: [CommonModule, RouterLink, FormsModule, SkeletonLoaderComponent, PropertyMapComponent, IndianPricePipe],
   template: `
     <div class="property-detail-wrapper">
     <div class="property-detail-page" *ngIf="property && !loading">
@@ -55,7 +56,7 @@ interface SiteVisitDto {
           </div>
           <div class="header-right">
             <div class="price-section">
-              <div class="price">₹ {{ property.price | number }}</div>
+              <div class="price">{{ property.price | indianPrice }}</div>
               <div class="price-label">{{ property.listingType === 'RENT' ? 'per month' : 'total price' }}</div>
             </div>
             <div class="action-buttons">

@@ -6,6 +6,7 @@ import { ApiService } from '../../core/services/api.service';
 import { ConfigService } from '../../core/services/config.service';
 import { ToastrService } from 'ngx-toastr';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
 
 interface PropertySummary {
   id: number;
@@ -52,7 +53,7 @@ interface SiteVisitDetail {
 @Component({
   selector: 'app-agent-visit-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, IndianPricePipe],
   template: `
     <div class="visit-detail-page">
       <div class="container">
@@ -80,7 +81,7 @@ interface SiteVisitDetail {
                 <dt>Type</dt>
                 <dd>{{ detail.property.propertyType }} · {{ detail.property.listingType }}</dd>
                 <dt>Price</dt>
-                <dd>₹ {{ detail.property.price | number }}</dd>
+                <dd>{{ detail.property.price | indianPrice }}</dd>
                 <dt>Beds / Baths / Area</dt>
                 <dd>{{ detail.property.bedrooms }} / {{ detail.property.bathrooms }} / {{ detail.property.areaSqft }} sq ft</dd>
                 <dt *ngIf="detail.property.amenities">Amenities</dt>

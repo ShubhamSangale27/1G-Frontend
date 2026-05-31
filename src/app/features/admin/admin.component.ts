@@ -234,6 +234,8 @@ interface UserRow {
                         <select class="form-select sm" [ngModel]="u.role"
                                 (ngModelChange)="changeUserRole(u, $event)"
                                 [disabled]="changingUserRole[u.id] || u.id === currentUserId">
+                          <option value="USER">USER</option>
+                          <option value="BLOG">BLOG</option>
                           <option value="ADMIN">ADMIN</option>
                           <option value="AGENT">AGENT</option>
                         </select>

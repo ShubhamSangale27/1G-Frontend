@@ -2,10 +2,13 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { agentGuard } from './core/guards/agent.guard';
+import { blogGuard } from './core/guards/blog.guard';
 
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./features/home/home.component').then(m => m.HomeComponent) },
   { path: 'search', loadComponent: () => import('./features/search/search.component').then(m => m.SearchComponent) },
+  { path: 'blog', loadComponent: () => import('./features/blog/blog-list.component').then(m => m.BlogListComponent) },
+  { path: 'blog/:slug', loadComponent: () => import('./features/blog/blog-detail.component').then(m => m.BlogDetailComponent) },
   { path: 'Search', redirectTo: 'search', pathMatch: 'full' },
   { path: 'login', loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent) },
   { path: 'signup', loadComponent: () => import('./features/auth/signup/signup.component').then(m => m.SignupComponent) },
@@ -20,5 +23,6 @@ export const routes: Routes = [
   { path: 'admin', loadComponent: () => import('./features/admin/admin.component').then(m => m.AdminComponent), canActivate: [authGuard, adminGuard] },
   { path: 'agent/visit/:id', loadComponent: () => import('./features/agent/agent-visit-detail.component').then(m => m.AgentVisitDetailComponent), canActivate: [authGuard, agentGuard] },
   { path: 'agent', loadComponent: () => import('./features/agent/agent.component').then(m => m.AgentComponent), canActivate: [authGuard, agentGuard] },
+  { path: 'blog-editor', loadComponent: () => import('./features/blog-editor/blog-editor-dashboard.component').then(m => m.BlogEditorDashboardComponent), canActivate: [authGuard, blogGuard] },
   { path: '**', redirectTo: '' },
 ];

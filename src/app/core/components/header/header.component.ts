@@ -21,6 +21,9 @@ import { AuthService } from '../../services/auth.service';
           <a routerLink="/search" routerLinkActive="active">
             <span>Search</span>
           </a>
+          <a routerLink="/blog" routerLinkActive="active">
+            <span>Blog</span>
+          </a>
           <ng-container *ngIf="auth.user() as u">
             <a routerLink="/dashboard" routerLinkActive="active">
               <span>Dashboard</span>
@@ -36,6 +39,9 @@ import { AuthService } from '../../services/auth.service';
             </a>
             <a *ngIf="auth.getRole() === 'ADMIN'" routerLink="/admin" routerLinkActive="active">
               <span>Admin</span>
+            </a>
+            <a *ngIf="auth.getRole() === 'BLOG' || auth.getRole() === 'ADMIN'" routerLink="/blog-editor" routerLinkActive="active">
+              <span>Blog Studio</span>
             </a>
             <div class="user-menu">
               <div class="user-avatar">{{ u.fullName.charAt(0) }}</div>

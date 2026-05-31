@@ -65,7 +65,17 @@ interface SiteVisitDto {
                   📅 Book Site Visit
                 </button>
                 <div class="existing-visit-actions" *ngIf="myVisitForProperty">
-                  <span class="visit-scheduled">Visit scheduled: {{ myVisitForProperty.scheduledAt | date:'medium' }}</span>
+                  <span class="visit-status-badge" [class.assigned]="myVisitForProperty.status === 'ASSIGNED'">{{ visitStatusLabel() }}</span>
+                  <span class="visit-scheduled">{{ myVisitForProperty.scheduledAt | date:'medium' }}</span>
+                  <div class="visit-otp-box" *ngIf="myVisitForProperty.status === 'ASSIGNED' && visitOtp">
+                    <span class="otp-label">Your visit OTP</span>
+                    <strong class="otp-code">{{ visitOtp }}</strong>
+                    <span class="otp-hint">Keep this private. Share it with the agent only in person when the visit is finished.</span>
+                    <button type="button" class="btn btn-outline btn-sm" (click)="resendVisitOtp()" [disabled]="resendingOtp">Resend OTP</button>
+                  </div>
+                  <p class="visit-pending-msg" *ngIf="myVisitForProperty.status === 'PENDING_ASSIGNMENT'">
+                    Waiting for admin to assign an agent. You'll receive an OTP via SMS when assigned.
+                  </p>
                   <button class="btn btn-primary btn-lg" (click)="openReschedule()">📅 Reschedule visit</button>
                 </div>
               </ng-container>
@@ -243,7 +253,14 @@ interface SiteVisitDto {
                   📅 Book Site Visit
                 </button>
                 <div class="existing-visit-sidebar" *ngIf="myVisitForProperty">
-                  <p class="visit-scheduled-text">Your visit: {{ myVisitForProperty.scheduledAt | date:'medium' }}</p>
+                  <span class="visit-status-badge" [class.assigned]="myVisitForProperty.status === 'ASSIGNED'">{{ visitStatusLabel() }}</span>
+                  <p class="visit-scheduled-text">{{ myVisitForProperty.scheduledAt | date:'medium' }}</p>
+                  <div class="visit-otp-box" *ngIf="myVisitForProperty.status === 'ASSIGNED' && visitOtp">
+                    <span class="otp-label">Visit OTP</span>
+                    <strong class="otp-code">{{ visitOtp }}</strong>
+                    <button type="button" class="btn btn-outline btn-sm btn-block" (click)="resendVisitOtp()" [disabled]="resendingOtp">Resend OTP</button>
+                  </div>
+                  <p class="visit-pending-msg" *ngIf="myVisitForProperty.status === 'PENDING_ASSIGNMENT'">Agent assignment pending — OTP will be sent via SMS.</p>
                   <button class="btn btn-primary btn-block" (click)="openReschedule()">📅 Reschedule</button>
                 </div>
               </ng-container>
@@ -905,6 +922,29 @@ interface SiteVisitDto {
       flex-direction: column;
       gap: 0.5rem;
     }
+    .visit-status-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: var(--status-pending-bg);
+      color: var(--status-pending-text);
+      width: fit-content;
+    }
+    .visit-status-badge.assigned { background: var(--success-bg); color: var(--success-text); }
+    .visit-otp-box {
+      padding: 0.75rem 1rem;
+      background: var(--info-bg);
+      border: 1px solid rgba(14,165,233,0.25);
+      border-radius: var(--radius);
+    }
+    .otp-label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+    .otp-code { display: block; font-size: 1.5rem; letter-spacing: 0.2em; font-family: monospace; color: var(--primary-dark); margin-bottom: 0.35rem; }
+    .otp-hint { display: block; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+    .visit-pending-msg { font-size: 0.85rem; color: var(--text-muted); margin: 0; }
     .visit-scheduled, .visit-scheduled-text {
       font-size: 0.9rem;
       color: var(--text-muted);
@@ -940,6 +980,8 @@ export class PropertyDetailComponent implements OnInit {
   visitTimeOnly = '';
   visitNotes = '';
   myVisitForProperty: SiteVisitDto | null = null;
+  visitOtp = '';
+  resendingOtp = false;
   readonly rescheduleVisitOpen = signal(false);
   rescheduleDateOnly = '';
   rescheduleTimeOnly = '';
@@ -1069,6 +1111,8 @@ export class PropertyDetailComponent implements OnInit {
       .subscribe({
         next: (v) => {
           this.myVisitForProperty = v ?? null;
+          if (v?.status === 'ASSIGNED') this.loadVisitOtp(v.id);
+          else this.visitOtp = '';
           this.cdr.detectChanges();
         },
         error: () => {
@@ -1161,7 +1205,7 @@ export class PropertyDetailComponent implements OnInit {
     }
     this.api.post<SiteVisitDto>('/sitevisits', { propertyId: this.property.id, scheduledAt, userNotes: this.visitNotes }).subscribe({
       next: (v) => {
-        this.toast.success('Site visit requested successfully');
+        this.toast.success('Visit requested! An admin will assign an agent — you will get an OTP via SMS when assigned.');
         this.bookVisitOpen.set(false);
         this.visitDateOnly = '';
         this.visitTimeOnly = '';
@@ -1236,5 +1280,34 @@ export class PropertyDetailComponent implements OnInit {
         },
       });
     }
+  }
+
+  visitStatusLabel(): string {
+    if (!this.myVisitForProperty) return '';
+    return this.myVisitForProperty.status === 'ASSIGNED' ? 'Agent assigned' : 'Pending assignment';
+  }
+
+  loadVisitOtp(visitId: number) {
+    this.api.get<{ otp: string }>(`/sitevisits/${visitId}/otp`).subscribe({
+      next: (res) => { this.visitOtp = res.otp; this.cdr.detectChanges(); },
+      error: () => { this.visitOtp = ''; },
+    });
+  }
+
+  resendVisitOtp() {
+    if (!this.myVisitForProperty) return;
+    this.resendingOtp = true;
+    this.api.post<{ otp: string; message?: string }>(`/sitevisits/${this.myVisitForProperty.id}/resend-otp`, {}).subscribe({
+      next: (res) => {
+        this.visitOtp = res.otp;
+        this.resendingOtp = false;
+        this.toast.success(res.message || 'OTP resent to your mobile');
+        this.cdr.detectChanges();
+      },
+      error: (e) => {
+        this.resendingOtp = false;
+        this.toast.error(e.error?.message || 'Failed to resend OTP');
+      },
+    });
   }
 }

@@ -2,6 +2,8 @@ import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { ConfigService } from '../../services/config.service';
+import { resolvePropertyImageUrl } from '../../utils/image-url.util';
 
 @Component({
   selector: 'app-header',
@@ -44,11 +46,17 @@ import { AuthService } from '../../services/auth.service';
               <span>Blog Studio</span>
             </a>
             <div class="user-menu">
-              <div class="user-avatar">{{ u.fullName.charAt(0) }}</div>
-              <div class="user-info">
-                <div class="user-name">{{ u.fullName }}</div>
-                <div class="user-email">{{ u.email }}</div>
-              </div>
+              <a routerLink="/profile" class="user-menu-link" title="Edit profile">
+                @if (avatarUrl(u)) {
+                  <img [src]="avatarUrl(u)!" alt="" class="user-avatar-img" />
+                } @else {
+                  <div class="user-avatar">{{ u.fullName.charAt(0) }}</div>
+                }
+                <div class="user-info">
+                  <div class="user-name">{{ u.fullName }}</div>
+                  <div class="user-email">{{ u.email }}</div>
+                </div>
+              </a>
             </div>
             <button type="button" class="btn btn-outline btn-sm" (click)="auth.logout()">Logout</button>
           </ng-container>
@@ -139,16 +147,33 @@ import { AuthService } from '../../services/auth.service';
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.5rem 1rem;
+      padding: 0.25rem;
       background: var(--bg);
       border-radius: var(--radius);
       margin-right: 0.5rem;
       border: 1px solid var(--border);
     }
-    .user-avatar {
+    .user-menu-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+      text-decoration: none;
+      color: inherit;
+      border-radius: var(--radius-sm);
+    }
+    .user-menu-link:hover {
+      background: rgba(14, 165, 233, 0.08);
+    }
+    .user-avatar,
+    .user-avatar-img {
       width: 38px;
       height: 38px;
       border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
+    }
+    .user-avatar {
       background: var(--primary-gradient);
       color: white;
       display: flex;
@@ -156,7 +181,10 @@ import { AuthService } from '../../services/auth.service';
       justify-content: center;
       font-weight: 700;
       font-size: 0.9375rem;
-      box-shadow: var(--shadow-sm);
+    }
+    .user-avatar-img {
+      object-fit: cover;
+      display: block;
     }
     .user-info {
       display: none;
@@ -219,5 +247,13 @@ import { AuthService } from '../../services/auth.service';
   `],
 })
 export class HeaderComponent {
-  constructor(public auth: AuthService) {}
+  constructor(
+    public auth: AuthService,
+    private config: ConfigService,
+  ) {}
+
+  avatarUrl(u: { profileImageUrl?: string }): string | null {
+    if (!u.profileImageUrl) return null;
+    return resolvePropertyImageUrl(u.profileImageUrl, this.config.apiUrl);
+  }
 }

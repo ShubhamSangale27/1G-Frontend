@@ -14,6 +14,16 @@ export interface User {
   emailVerified: boolean;
   mobileVerified: boolean;
   active?: boolean;
+  profileImageUrl?: string;
+}
+
+export interface PasswordOtpResponse {
+  message: string;
+  maskedMobile?: string;
+  resendAttemptsUsed?: number;
+  resendAttemptsRemaining?: number;
+  resendAvailableAt?: string;
+  maxResendAttemptsPerDay?: number;
 }
 
 export interface AuthResponse {
@@ -120,5 +130,36 @@ export class AuthService {
   /** Send email verification link to current user's email (requires auth). */
   sendEmailVerification() {
     return this.api.post('/auth/send-email-verification', {});
+  }
+
+  getProfile() {
+    return this.api.get<User>('/users/me');
+  }
+
+  updateProfile(body: { fullName: string; email: string; profileImageUrl?: string | null }) {
+    return this.api.put<User>('/users/me', body).pipe(
+      tap((user) => this.updateLocalUser(user)),
+    );
+  }
+
+  forgotPassword(email: string) {
+    return this.api.post<PasswordOtpResponse>('/auth/forgot-password', { email }, this.skipGlobalErrorToast);
+  }
+
+  resetPassword(email: string, otp: string, newPassword: string) {
+    return this.api.post<{ message: string }>('/auth/reset-password', { email, otp, newPassword }, this.skipGlobalErrorToast);
+  }
+
+  sendChangePasswordOtp() {
+    return this.api.post<PasswordOtpResponse>('/auth/change-password/send-otp', {}, this.skipGlobalErrorToast);
+  }
+
+  changePassword(otp: string, newPassword: string) {
+    return this.api.post<{ message: string }>('/auth/change-password', { otp, newPassword }, this.skipGlobalErrorToast);
+  }
+
+  updateLocalUser(user: User): void {
+    this.userSignal.set(user);
+    localStorage.setItem('user', JSON.stringify(user));
   }
 }

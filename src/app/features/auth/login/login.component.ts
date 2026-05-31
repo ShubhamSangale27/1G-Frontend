@@ -37,6 +37,9 @@ import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.
               @if (form.get('password')?.invalid && form.get('password')?.touched) {
                 <span class="error">Password is required</span>
               }
+              <div class="forgot-row">
+                <a routerLink="/forgot-password">Forgot password?</a>
+              </div>
             </div>
             <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="form.invalid || submitting()">
               {{ submitting() ? 'Signing in…' : 'Login' }}
@@ -125,6 +128,16 @@ import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.
     .btn-block {
       width: 100%;
       margin-top: 1rem;
+    }
+    .forgot-row {
+      margin-top: 0.5rem;
+      text-align: right;
+    }
+    .forgot-row a {
+      font-size: 0.875rem;
+      color: var(--primary);
+      font-weight: 600;
+      text-decoration: none;
     }
   `],
 })

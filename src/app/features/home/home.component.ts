@@ -25,7 +25,13 @@ interface HomeCarouselSlide {
   imports: [CommonModule, RouterLink, FormsModule, PropertyCardComponent, SkeletonLoaderComponent, CarouselModule],
   template: `
     <section class="home-carousel-wrap" aria-label="Featured banners">
-      <carousel>
+      <carousel
+        *ngIf="displayCarouselSlides.length"
+        [interval]="displayCarouselSlides.length > 1 ? carouselIntervalMs : 0"
+        [noWrap]="false"
+        [noPause]="true"
+        [isAnimated]="true"
+        [showIndicators]="displayCarouselSlides.length > 1">
         <slide *ngFor="let slide of displayCarouselSlides">
           <a *ngIf="slide.linkUrl" [href]="slide.linkUrl" target="_blank" rel="noopener" class="carouselimg">
             <img [src]="slide.resolvedImageUrl" [alt]="slide.altText || 'Homepage banner'" />
@@ -239,6 +245,7 @@ interface HomeCarouselSlide {
   styles: [`
     :host { display: block; }
     .home-carousel-wrap {
+      --home-carousel-max-height: 330px;
       margin-bottom: 1.5rem;
       border-radius: var(--radius-lg);
       overflow: hidden;
@@ -247,7 +254,7 @@ interface HomeCarouselSlide {
     .home-carousel-wrap ::ng-deep carousel { display: block; }
     .home-carousel-wrap ::ng-deep .carousel-inner,
     .home-carousel-wrap ::ng-deep .item,
-    .home-carousel-wrap ::ng-deep slide { max-height: 220px; }
+    .home-carousel-wrap ::ng-deep slide { max-height: var(--home-carousel-max-height); }
     .carouselimg {
       display: block;
       line-height: 0;
@@ -255,7 +262,7 @@ interface HomeCarouselSlide {
     .carouselimg img {
       display: block;
       width: 100%;
-      max-height: 220px;
+      max-height: var(--home-carousel-max-height);
       object-fit: cover;
     }
     .hero {
@@ -728,6 +735,8 @@ export class HomeComponent implements OnInit {
   searchType = 'buy';
   searchQuery = '';
   displayCarouselSlides: HomeCarouselSlide[] = [];
+  readonly carouselMaxHeightPx = 330;
+  readonly carouselIntervalMs = 5000;
 
   private readonly fallbackCarouselSlides: HomeCarouselSlide[] = [
     { imageUrl: 'assets/images/carousel/1.jpg', resolvedImageUrl: 'assets/images/carousel/1.jpg', altText: 'Banner 1' },

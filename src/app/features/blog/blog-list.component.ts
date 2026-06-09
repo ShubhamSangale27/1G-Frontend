@@ -3,7 +3,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { BlogFilters, BlogPost } from '../../core/models/blog.model';
-import { ConfigService } from '../../core/services/config.service';
 import { BlogService } from '../../core/services/blog.service';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
@@ -199,7 +198,6 @@ import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-l
 })
 export class BlogListComponent implements OnInit {
   private readonly blog = inject(BlogService);
-  private readonly config = inject(ConfigService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -235,17 +233,17 @@ export class BlogListComponent implements OnInit {
           this.tagLists = {};
           for (const p of items) {
             this.coverUrls[p.id] = p.coverImageUrl
-              ? resolvePropertyImageUrl(p.coverImageUrl, this.config.apiUrl)
+              ? resolvePropertyImageUrl(p.coverImageUrl)
               : 'https://placehold.co/800x450/0ea5e9/ffffff?text=1Guntha+Blog';
             this.tagLists[p.id] = this.parseTags(p.tags).slice(0, 2);
           }
           this.loading = false;
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.loading = false;
           this.loadError = 'We could not load blog posts. Please check your connection and try again.';
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         },
       });
   }

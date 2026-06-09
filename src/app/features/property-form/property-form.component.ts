@@ -6,25 +6,23 @@ import { FormsModule } from '@angular/forms';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ConfigService } from '../../core/services/config.service';
 import { Property } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { getStateNames, getCitiesForState } from '../../core/data/indian-locations';
 import { PropertyMapComponent } from '../../shared/property-map/property-map.component';
 import {
   resolvePropertyImageUrl,
-  getPropertyVideoPlayerKind,
   resolveVideoEmbedUrl,
-  resolveNativeVideoUrl,
+  resolveVideoCardPosterUrl,
+  isAllowedImageUrl,
+  isAllowedVideoUrl,
 } from '../../core/utils/image-url.util';
 
 interface PropertyMediaItem {
   imageUrl: string;
   mediaType: 'IMAGE' | 'VIDEO';
   previewImageUrl: string;
-  nativePlayUrl?: string;
   safeEmbedUrl?: SafeResourceUrl;
-  playerKind?: 'embed' | 'native';
 }
 
 @Component({
@@ -177,7 +175,7 @@ interface PropertyMediaItem {
               <div class="add-url-row">
                 <div class="form-group add-url-input">
                   <label>Media URL</label>
-                  <input type="url" [(ngModel)]="newMediaUrl" [ngModelOptions]="{standalone: true}" placeholder="https://example.com/media.jpg or .mp4" (keydown.enter)="addMediaByUrl(); $event.preventDefault()" />
+                  <input type="url" [(ngModel)]="newMediaUrl" [ngModelOptions]="{standalone: true}" placeholder="Google Drive, public image, or YouTube URL" (keydown.enter)="addMediaByUrl(); $event.preventDefault()" />
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label>Type</label>
@@ -187,17 +185,12 @@ interface PropertyMediaItem {
                   </select>
                 </div>
                 <button type="button" class="btn btn-primary add-url-btn" (click)="addMediaByUrl()">Add URL</button>
-                <label class="btn btn-outline add-url-btn upload-media-btn">
-                  Upload file
-                  <input type="file" accept="image/*,video/*" (change)="uploadMediaFile($event)" hidden />
-                </label>
               </div>
-              <small class="images-hint">Add a URL or upload an image/video file. YouTube, Vimeo, and Google Drive links play in-app. Uploaded videos use the built-in player.</small>
+              <small class="images-hint">Paste a public image URL, Google Drive image link, or YouTube video URL. Media is loaded directly from the URL — no file uploads.</small>
               <div class="image-preview-row" *ngFor="let media of mediaItems; let i = index">
                 <img *ngIf="media.mediaType === 'IMAGE'" [src]="media.previewImageUrl" alt="Preview" class="image-preview" (error)="onImageError($event)" />
-                <div *ngIf="media.mediaType === 'VIDEO'" class="video-preview-wrap">
+                <div *ngIf="media.mediaType === 'VIDEO' && media.safeEmbedUrl" class="video-preview-wrap">
                   <iframe
-                    *ngIf="media.playerKind === 'embed'"
                     [src]="media.safeEmbedUrl"
                     class="video-preview"
                     title="Video preview"
@@ -206,14 +199,6 @@ interface PropertyMediaItem {
                     referrerpolicy="strict-origin-when-cross-origin"
                     loading="lazy"
                   ></iframe>
-                  <video
-                    *ngIf="media.playerKind === 'native'"
-                    [src]="media.nativePlayUrl"
-                    class="video-preview"
-                    controls
-                    playsinline
-                    preload="metadata"
-                  ></video>
                 </div>
                 <div class="image-actions">
                   <span class="badge badge-type-inline">{{ media.mediaType }}</span>
@@ -335,10 +320,6 @@ interface PropertyMediaItem {
     .add-url-row .add-url-btn {
       flex-shrink: 0;
     }
-    .upload-media-btn {
-      cursor: pointer;
-      margin: 0;
-    }
     .images-hint {
       margin-bottom: 0.25rem;
     }
@@ -444,7 +425,6 @@ export class PropertyFormComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private api: ApiService,
-    private config: ConfigService,
     public auth: AuthService,
     private router: Router,
     private route: ActivatedRoute,
@@ -533,46 +513,19 @@ export class PropertyFormComponent implements OnInit {
   private buildMediaItem(imageUrl: string, mediaType: 'IMAGE' | 'VIDEO'): PropertyMediaItem {
     const url = (imageUrl || '').trim();
     if (mediaType === 'VIDEO') {
-      const kind = getPropertyVideoPlayerKind(url);
-      const embed = kind === 'embed' ? resolveVideoEmbedUrl(url) : '';
+      const embed = resolveVideoEmbedUrl(url);
       return {
         imageUrl: url,
         mediaType,
-        previewImageUrl: resolvePropertyImageUrl(url, this.config.apiUrl),
-        playerKind: kind,
-        nativePlayUrl: kind === 'native' ? resolveNativeVideoUrl(url, this.config.apiUrl) : undefined,
-        safeEmbedUrl: embed
-          ? this.sanitizer.bypassSecurityTrustResourceUrl(embed)
-          : undefined,
+        previewImageUrl: resolveVideoCardPosterUrl(url) || resolvePropertyImageUrl(url),
+        safeEmbedUrl: embed ? this.sanitizer.bypassSecurityTrustResourceUrl(embed) : undefined,
       };
     }
     return {
       imageUrl: url,
       mediaType,
-      previewImageUrl: resolvePropertyImageUrl(url, this.config.apiUrl),
+      previewImageUrl: resolvePropertyImageUrl(url),
     };
-  }
-
-  uploadMediaFile(event: Event) {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const isVideo = file.type.startsWith('video/');
-    const isImage = file.type.startsWith('image/');
-    if (!isVideo && !isImage) {
-      this.toast.error('Choose an image or video file');
-      return;
-    }
-    this.api.uploadFile('/upload', file).subscribe({
-      next: (res) => {
-        this.mediaItems.push(this.buildMediaItem(res.url, isVideo ? 'VIDEO' : 'IMAGE'));
-        this.toast.success(isVideo ? 'Video uploaded' : 'Image uploaded');
-        (event.target as HTMLInputElement).value = '';
-      },
-      error: (err: unknown) => {
-        this.toast.error((err as { error?: { message?: string } })?.error?.message || 'Upload failed');
-        (event.target as HTMLInputElement).value = '';
-      },
-    });
   }
 
   onImageError(event: Event) {
@@ -589,6 +542,15 @@ export class PropertyFormComponent implements OnInit {
     }
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       this.toast.warning('URL must start with http:// or https://');
+      return;
+    }
+    if (this.newMediaType === 'VIDEO') {
+      if (!isAllowedVideoUrl(url)) {
+        this.toast.error('Video must be a YouTube or Google Drive link');
+        return;
+      }
+    } else if (!isAllowedImageUrl(url)) {
+      this.toast.error('Image must be a public image URL or Google Drive link');
       return;
     }
     this.mediaItems.push(this.buildMediaItem(url, this.newMediaType));

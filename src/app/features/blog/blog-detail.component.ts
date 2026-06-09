@@ -6,16 +6,14 @@ import { DomSanitizer, Meta, SafeHtml, SafeResourceUrl, Title } from '@angular/p
 import { HttpErrorResponse } from '@angular/common/http';
 import { catchError, distinctUntilChanged, filter, map, of, switchMap, tap } from 'rxjs';
 import { BlogPost, BlogContentBlock } from '../../core/models/blog.model';
-import { ConfigService } from '../../core/services/config.service';
 import { BlogService } from '../../core/services/blog.service';
-import { resolvePropertyImageUrl, resolveNativeVideoUrl, resolveVideoEmbedUrl, getPropertyVideoPlayerKind } from '../../core/utils/image-url.util';
+import { resolvePropertyImageUrl, resolveVideoEmbedUrl } from '../../core/utils/image-url.util';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { extractHttpErrorMessage } from '../../core/utils/http-error-message.util';
 
 interface RenderBlock extends BlogContentBlock {
   html?: SafeHtml;
   embedUrl?: SafeResourceUrl;
-  nativeVideoUrl?: string;
   imageUrl?: string;
 }
 
@@ -60,9 +58,15 @@ interface RenderBlock extends BlogContentBlock {
                   <img [src]="b.imageUrl" [alt]="b.caption || post.title" loading="lazy" />
                   <figcaption *ngIf="b.caption">{{ b.caption }}</figcaption>
                 </figure>
-                <figure class="media-block" *ngIf="b.blockType === 'VIDEO'">
-                  <iframe *ngIf="b.embedUrl" [src]="b.embedUrl" allowfullscreen title="Video"></iframe>
-                  <video *ngIf="!b.embedUrl && b.nativeVideoUrl" [src]="b.nativeVideoUrl" controls playsinline preload="metadata"></video>
+                <figure class="media-block" *ngIf="b.blockType === 'VIDEO' && b.embedUrl">
+                  <iframe
+                    [src]="b.embedUrl"
+                    title="Video"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    loading="lazy"
+                  ></iframe>
                   <figcaption *ngIf="b.caption">{{ b.caption }}</figcaption>
                 </figure>
                 <p class="link-block" *ngIf="b.blockType === 'LINK'">
@@ -149,7 +153,6 @@ interface RenderBlock extends BlogContentBlock {
 export class BlogDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly blog = inject(BlogService);
-  private readonly config = inject(ConfigService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
@@ -201,7 +204,7 @@ export class BlogDetailComponent implements OnInit {
     this.postDate = p.publishedAt || p.createdAt;
     this.tagList = p.tags ? p.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
     this.heroImageUrl = p.coverImageUrl
-      ? resolvePropertyImageUrl(p.coverImageUrl, this.config.apiUrl)
+      ? resolvePropertyImageUrl(p.coverImageUrl)
       : '';
     this.renderBlocks = [...(p.blocks || [])]
       .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
@@ -216,13 +219,11 @@ export class BlogDetailComponent implements OnInit {
       const html = raw.startsWith('<') ? raw : `<p>${this.escapeHtml(raw)}</p>`;
       block.html = this.sanitizer.bypassSecurityTrustHtml(html);
     } else if (b.blockType === 'IMAGE') {
-      block.imageUrl = resolvePropertyImageUrl(b.mediaUrl || '', this.config.apiUrl);
+      block.imageUrl = resolvePropertyImageUrl(b.mediaUrl || '');
     } else if (b.blockType === 'VIDEO') {
-      if (getPropertyVideoPlayerKind(b.mediaUrl || '') === 'embed') {
-        const embed = resolveVideoEmbedUrl(b.mediaUrl || '');
-        block.embedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embed || 'about:blank');
-      } else {
-        block.nativeVideoUrl = resolveNativeVideoUrl(b.mediaUrl || '', this.config.apiUrl);
+      const embed = resolveVideoEmbedUrl(b.mediaUrl || '');
+      if (embed) {
+        block.embedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embed);
       }
     }
     return block;

@@ -108,15 +108,8 @@ interface SiteVisitDto {
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowfullscreen
                   referrerpolicy="strict-origin-when-cross-origin"
+                  loading="lazy"
                 ></iframe>
-                <video
-                  *ngSwitchCase="'video-native'"
-                  class="hero-video hero-media"
-                  [src]="slide.nativePlayUrl"
-                  controls
-                  playsinline
-                  preload="metadata"
-                ></video>
               </ng-container>
               <button type="button" class="gallery-nav prev" (click)="prevGallery(); $event.stopPropagation()" *ngIf="gallerySlides.length > 1">‹</button>
               <button type="button" class="gallery-nav next" (click)="nextGallery(); $event.stopPropagation()" *ngIf="gallerySlides.length > 1">›</button>
@@ -1024,7 +1017,7 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   imageFullUrl(url: string): string {
-    return resolvePropertyImageUrl(url, this.config.apiUrl);
+    return resolvePropertyImageUrl(url);
   }
 
   openZoom(url: string) {
@@ -1111,7 +1104,7 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   rebuildGallery(): void {
-    this.gallerySlides = buildGallerySlides(this.property?.images, this.config.apiUrl).map((slide) =>
+    this.gallerySlides = buildGallerySlides(this.property?.images).map((slide) =>
       this.toRenderableSlide(slide),
     );
     this.galleryIndex = 0;
@@ -1120,7 +1113,7 @@ export class PropertyDetailComponent implements OnInit {
   private toRenderableSlide(slide: GallerySlide): RenderableGallerySlide {
     const thumbUrl = slide.kind === 'photo'
       ? this.imageFullUrl(slide.sourceUrl)
-      : (resolveVideoCardPosterUrl(slide.sourceUrl, this.config.apiUrl)
+      : (resolveVideoCardPosterUrl(slide.sourceUrl)
         || 'https://placehold.co/200x200/0f172a/94a3b8?text=%E2%96%B6');
     return {
       ...slide,

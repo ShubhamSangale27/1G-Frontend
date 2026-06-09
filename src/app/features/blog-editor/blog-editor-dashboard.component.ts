@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, ElementRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,9 +11,15 @@ import {
   BlogPost,
   BlogPostCreateUpdateRequest,
 } from '../../core/models/blog.model';
+import { RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { ConfigService } from '../../core/services/config.service';
-import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import {
+  isAllowedImageUrl,
+  isAllowedVideoUrl,
+  resolvePropertyImageUrl,
+  resolveVideoEmbedUrl,
+} from '../../core/utils/image-url.util';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { BlogRichTextEditorComponent } from '../../shared/blog-rich-text-editor/blog-rich-text-editor.component';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { SKIP_GLOBAL_ERROR_TOAST } from '../../core/http-context.tokens';
@@ -22,7 +28,7 @@ import { extractHttpErrorMessage } from '../../core/utils/http-error-message.uti
 @Component({
   selector: 'app-blog-editor-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, BlogRichTextEditorComponent, SkeletonLoaderComponent],
+  imports: [CommonModule, FormsModule, BlogRichTextEditorComponent, SkeletonLoaderComponent, RouterLink],
   template: `
     <div class="studio-page">
       <div class="studio-wrap">
@@ -35,11 +41,16 @@ import { extractHttpErrorMessage } from '../../core/utils/http-error-message.uti
           <button type="button" class="btn btn-primary" (click)="newPost()">+ New Post</button>
         </header>
 
-        @if (saveMessage()) {
-          <div class="save-banner" [class.save-banner-error]="saveMessageError()">
-            {{ saveMessage() }}
-          </div>
-        }
+        <div
+          #saveBanner
+          class="save-banner"
+          *ngIf="saveMessage()"
+          [class.save-banner-error]="saveMessageError()"
+          role="status"
+        >
+          {{ saveMessage() }}
+          <a *ngIf="lastSavedSlug && draft.published" [routerLink]="['/blog', lastSavedSlug]" class="view-live-link">View on blog →</a>
+        </div>
 
         <div class="studio-layout">
           <section class="studio-card studio-list">
@@ -116,15 +127,10 @@ import { extractHttpErrorMessage } from '../../core/utils/http-error-message.uti
             </div>
 
             <div class="studio-field">
-              <label>Cover Image</label>
-              <div class="studio-inline">
-                <input class="studio-inline-grow" [(ngModel)]="draft.coverImageUrl" placeholder="Image URL or upload below" />
-                <label class="btn btn-outline btn-sm upload-label">
-                  Upload
-                  <input type="file" accept="image/*" (change)="uploadCover($event)" hidden />
-                </label>
-              </div>
-              <img class="cover-preview" *ngIf="draft.coverImageUrl" [src]="coverPreviewUrl" alt="Cover preview" />
+              <label>Cover image URL</label>
+              <input [(ngModel)]="draft.coverImageUrl" placeholder="Google Drive or public image URL (https://…)" />
+              <small>Google Drive file link (Anyone with the link) or any public image URL.</small>
+              <img class="cover-preview" *ngIf="coverPreviewUrl" [src]="coverPreviewUrl" alt="Cover preview" />
             </div>
 
             <h4 class="blocks-title">Content Blocks <span class="hint">Drag to reorder</span></h4>
@@ -157,13 +163,19 @@ import { extractHttpErrorMessage } from '../../core/utils/http-error-message.uti
               ></app-blog-rich-text-editor>
 
               <div *ngIf="b.blockType === 'IMAGE' || b.blockType === 'VIDEO'" class="studio-field">
-                <div class="studio-inline">
-                  <input class="studio-inline-grow" [(ngModel)]="b.mediaUrl" placeholder="Media URL" />
-                  <label class="btn btn-outline btn-sm upload-label">
-                    Upload
-                    <input type="file" [accept]="b.blockType === 'IMAGE' ? 'image/*' : 'video/*'" (change)="uploadBlockMedia($event, b)" hidden />
-                  </label>
-                </div>
+                <input [(ngModel)]="b.mediaUrl" [placeholder]="b.blockType === 'VIDEO' ? 'YouTube or Google Drive video URL' : 'Google Drive or public image URL'" />
+                <small *ngIf="b.blockType === 'VIDEO'">YouTube watch/youtu.be link or Google Drive video with link sharing enabled.</small>
+                <small *ngIf="b.blockType === 'IMAGE'">Paste a public image URL or Google Drive image link.</small>
+                <img *ngIf="b.blockType === 'IMAGE' && blockImagePreview(b.mediaUrl)" class="block-preview" [src]="blockImagePreview(b.mediaUrl)" alt="Preview" />
+                <iframe
+                  *ngIf="b.blockType === 'VIDEO' && blockVideoEmbed(b.mediaUrl)"
+                  class="block-preview-video"
+                  [src]="blockVideoEmbed(b.mediaUrl)"
+                  title="Video preview"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen
+                  referrerpolicy="strict-origin-when-cross-origin"
+                ></iframe>
                 <input [(ngModel)]="b.caption" placeholder="Caption (optional)" />
               </div>
               <div *ngIf="b.blockType === 'LINK'" class="studio-field">
@@ -180,7 +192,7 @@ import { extractHttpErrorMessage } from '../../core/utils/http-error-message.uti
             </div>
 
             <div class="studio-inline studio-footer">
-              <label class="publish-check"><input type="checkbox" [(ngModel)]="draft.published" /> Publish now</label>
+              <label class="publish-check"><input type="checkbox" [(ngModel)]="draft.published" /> Publish on /blog</label>
               <button type="button" class="btn btn-primary btn-lg" (click)="save()" [disabled]="saving">
                 {{ saving ? 'Saving…' : (editingId ? 'Save changes' : 'Save post') }}
               </button>
@@ -231,6 +243,30 @@ import { extractHttpErrorMessage } from '../../core/utils/http-error-message.uti
       background: var(--danger-bg);
       color: var(--danger-text-strong);
       border-color: rgba(239, 68, 68, 0.3);
+    }
+    .view-live-link {
+      display: inline-block;
+      margin-left: 0.75rem;
+      color: inherit;
+      font-weight: 700;
+      text-decoration: underline;
+    }
+    .block-preview {
+      width: 100%;
+      max-width: 420px;
+      margin-top: 0.5rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      display: block;
+    }
+    .block-preview-video {
+      width: 100%;
+      max-width: 420px;
+      aspect-ratio: 16/9;
+      margin-top: 0.5rem;
+      border: 0;
+      border-radius: var(--radius);
+      background: #0f172a;
     }
     .studio-layout {
       display: grid;
@@ -308,7 +344,6 @@ import { extractHttpErrorMessage } from '../../core/utils/http-error-message.uti
       margin-bottom: 0.75rem;
     }
     .studio-inline-grow { flex: 1 1 220px; min-width: 0; }
-    .upload-label { cursor: pointer; margin: 0; white-space: nowrap; flex-shrink: 0; }
     .cover-preview {
       width: 100%;
       max-width: 360px;
@@ -356,19 +391,22 @@ import { extractHttpErrorMessage } from '../../core/utils/http-error-message.uti
   `],
 })
 export class BlogEditorDashboardComponent implements OnInit {
+  @ViewChild('saveBanner') saveBannerRef?: ElementRef<HTMLElement>;
+
   private readonly api = inject(ApiService);
   private readonly blog = inject(BlogService);
   private readonly toast = inject(ToastrService);
-  private readonly config = inject(ConfigService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly sanitizer = inject(DomSanitizer);
+  private readonly embedCache = new Map<string, SafeResourceUrl>();
 
   posts: BlogPost[] = [];
   editingId: number | null = null;
   dragIndex: number | null = null;
   categoryOptions = BLOG_CATEGORY_OPTIONS;
   draft: BlogPostCreateUpdateRequest = this.emptyDraft();
-  coverPreviewUrl = '';
+  lastSavedSlug = '';
   saving = false;
   listLoading = true;
   listError = '';
@@ -378,25 +416,33 @@ export class BlogEditorDashboardComponent implements OnInit {
 
   private readonly skipToast = new HttpContext().set(SKIP_GLOBAL_ERROR_TOAST, true);
 
+  get coverPreviewUrl(): string {
+    const url = (this.draft.coverImageUrl || '').trim();
+    if (!url || !isAllowedImageUrl(url)) return '';
+    return resolvePropertyImageUrl(url);
+  }
+
   ngOnInit(): void {
     this.loadPosts();
   }
 
-  loadPosts(): void {
-    this.listLoading = true;
-    this.listError = '';
+  loadPosts(silent = false): void {
+    if (!silent) {
+      this.listLoading = true;
+      this.listError = '';
+    }
     this.blog.getEditorPosts()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (items) => {
           this.posts = items;
           this.listLoading = false;
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.listLoading = false;
           this.listError = 'Could not load your posts.';
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         },
       });
   }
@@ -411,22 +457,41 @@ export class BlogEditorDashboardComponent implements OnInit {
 
   newPost(): void {
     this.editingId = null;
+    this.lastSavedSlug = '';
     this.draft = this.emptyDraft();
-    this.coverPreviewUrl = '';
     this.clearSaveMessage();
   }
 
   editPost(p: BlogPost): void {
     this.editingId = p.id;
+    this.lastSavedSlug = p.slug;
     this.draft = {
       title: p.title, excerpt: p.excerpt || '', coverImageUrl: p.coverImageUrl || '',
       metaTitle: p.metaTitle || '', metaDescription: p.metaDescription || '',
       category: p.category || '', tags: p.tags || '', published: p.published,
       blocks: (p.blocks || []).map((b, i) => ({ ...b, displayOrder: i })),
     };
-    this.coverPreviewUrl = this.resolveImageUrl(this.draft.coverImageUrl);
     this.clearSaveMessage();
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
+  }
+
+  blockImagePreview(url?: string | null): string {
+    const u = (url || '').trim();
+    if (!u || !isAllowedImageUrl(u)) return '';
+    return resolvePropertyImageUrl(u);
+  }
+
+  blockVideoEmbed(url?: string | null): SafeResourceUrl | undefined {
+    const u = (url || '').trim();
+    if (!u || !isAllowedVideoUrl(u)) return undefined;
+    const embed = resolveVideoEmbedUrl(u);
+    if (!embed) return undefined;
+    let cached = this.embedCache.get(embed);
+    if (!cached) {
+      cached = this.sanitizer.bypassSecurityTrustResourceUrl(embed);
+      this.embedCache.set(embed, cached);
+    }
+    return cached;
   }
 
   addBlock(type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'LINK'): void {
@@ -464,14 +529,24 @@ export class BlogEditorDashboardComponent implements OnInit {
         this.showSaveMessage('Each text block needs content.', true); return;
       }
       if ((b.blockType === 'IMAGE' || b.blockType === 'VIDEO') && !b.mediaUrl?.trim()) {
-        this.showSaveMessage(`${b.blockType} block needs an uploaded file or URL.`, true); return;
+        this.showSaveMessage(`${b.blockType} block needs a URL.`, true); return;
+      }
+      if (b.blockType === 'IMAGE' && !isAllowedImageUrl(b.mediaUrl ?? undefined)) {
+        this.showSaveMessage('Image blocks need a Google Drive or public image URL.', true); return;
+      }
+      if (b.blockType === 'VIDEO' && !isAllowedVideoUrl(b.mediaUrl ?? undefined)) {
+        this.showSaveMessage('Video blocks need a YouTube or Google Drive URL.', true); return;
       }
       if (b.blockType === 'LINK' && (!b.content?.trim() || !b.linkUrl?.trim())) {
         this.showSaveMessage('Link blocks need text and URL.', true); return;
       }
     }
+    const cover = (this.draft.coverImageUrl || '').trim();
+    if (cover && !isAllowedImageUrl(cover)) {
+      this.showSaveMessage('Cover must be a Google Drive or public image URL.', true);
+      return;
+    }
     this.saving = true;
-    this.clearSaveMessage();
     this.normalizeOrders();
     const req = { ...this.draft, blocks: this.draft.blocks.map(b => ({ ...b })) };
     const obs = this.editingId
@@ -481,18 +556,22 @@ export class BlogEditorDashboardComponent implements OnInit {
       next: (saved) => {
         this.saving = false;
         this.editingId = saved.id;
-        const msg = saved.published ? 'Post saved and published successfully!' : 'Post saved as draft.';
+        this.lastSavedSlug = saved.slug;
+        const msg = saved.published
+          ? 'Post saved and published! It is now visible on the blog page.'
+          : 'Post saved as draft. Check "Publish on /blog" and save again to make it public.';
         this.showSaveMessage(msg, false);
-        this.toast.success(msg);
-        this.loadPosts();
-        this.cdr.markForCheck();
+        this.toast.success(msg, 'Blog Studio');
+        this.loadPosts(true);
+        this.cdr.detectChanges();
+        setTimeout(() => this.saveBannerRef?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);
       },
       error: (e: unknown) => {
         this.saving = false;
         const msg = this.extractError(e);
         this.showSaveMessage(msg, true);
         this.toast.error(msg);
-        this.cdr.markForCheck();
+        this.cdr.detectChanges();
       },
     });
   }
@@ -523,38 +602,6 @@ export class BlogEditorDashboardComponent implements OnInit {
         },
         error: (e: unknown) => this.toast.error(this.extractError(e)),
       });
-  }
-
-  uploadCover(ev: Event): void {
-    const file = (ev.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    this.api.uploadFile('/upload', file)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (res) => {
-          this.draft.coverImageUrl = res.url;
-          this.coverPreviewUrl = this.resolveImageUrl(res.url);
-          this.toast.success('Cover uploaded');
-          this.cdr.markForCheck();
-        },
-        error: () => this.toast.error('Upload failed'),
-      });
-  }
-
-  uploadBlockMedia(ev: Event, block: BlogContentBlock): void {
-    const file = (ev.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    this.api.uploadFile('/upload', file)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (res) => { block.mediaUrl = res.url; this.toast.success('Media uploaded'); this.cdr.markForCheck(); },
-        error: () => this.toast.error('Upload failed'),
-      });
-  }
-
-  private resolveImageUrl(url?: string | null): string {
-    if (!url) return 'https://placehold.co/1200x675?text=Blog';
-    return resolvePropertyImageUrl(url, this.config.apiUrl);
   }
 
   private normalizeOrders(): void {

@@ -16,8 +16,16 @@ import {
   getPropertyVideoPlayerKind,
   resolveVideoEmbedUrl,
   resolveNativeVideoUrl,
-  type PropertyVideoPlayerKind,
 } from '../../core/utils/image-url.util';
+
+interface PropertyMediaItem {
+  imageUrl: string;
+  mediaType: 'IMAGE' | 'VIDEO';
+  previewImageUrl: string;
+  nativePlayUrl?: string;
+  safeEmbedUrl?: SafeResourceUrl;
+  playerKind?: 'embed' | 'native';
+}
 
 @Component({
   selector: 'app-property-form',
@@ -179,14 +187,18 @@ import {
                   </select>
                 </div>
                 <button type="button" class="btn btn-primary add-url-btn" (click)="addMediaByUrl()">Add URL</button>
+                <label class="btn btn-outline add-url-btn upload-media-btn">
+                  Upload file
+                  <input type="file" accept="image/*,video/*" (change)="uploadMediaFile($event)" hidden />
+                </label>
               </div>
-              <small class="images-hint">Paste image or video URLs and click Add URL. YouTube (watch or youtu.be) and Google Drive file links play in the app. Drive: use a file link and set sharing to &quot;Anyone with the link&quot;. Direct .mp4/.webm URLs use the built-in player.</small>
+              <small class="images-hint">Add a URL or upload an image/video file. YouTube, Vimeo, and Google Drive links play in-app. Uploaded videos use the built-in player.</small>
               <div class="image-preview-row" *ngFor="let media of mediaItems; let i = index">
-                <img *ngIf="media.mediaType === 'IMAGE'" [src]="imagePreviewUrl(media.imageUrl)" alt="Preview" class="image-preview" (error)="onImageError($event)" />
+                <img *ngIf="media.mediaType === 'IMAGE'" [src]="media.previewImageUrl" alt="Preview" class="image-preview" (error)="onImageError($event)" />
                 <div *ngIf="media.mediaType === 'VIDEO'" class="video-preview-wrap">
                   <iframe
-                    *ngIf="videoPlayerKind(media.imageUrl) === 'embed'"
-                    [src]="safeVideoEmbedUrl(media.imageUrl)"
+                    *ngIf="media.playerKind === 'embed'"
+                    [src]="media.safeEmbedUrl"
                     class="video-preview"
                     title="Video preview"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -195,8 +207,8 @@ import {
                     loading="lazy"
                   ></iframe>
                   <video
-                    *ngIf="videoPlayerKind(media.imageUrl) === 'native'"
-                    [src]="nativeVideoPreviewUrl(media.imageUrl)"
+                    *ngIf="media.playerKind === 'native'"
+                    [src]="media.nativePlayUrl"
                     class="video-preview"
                     controls
                     playsinline
@@ -323,6 +335,10 @@ import {
     .add-url-row .add-url-btn {
       flex-shrink: 0;
     }
+    .upload-media-btn {
+      cursor: pointer;
+      margin: 0;
+    }
     .images-hint {
       margin-bottom: 0.25rem;
     }
@@ -419,7 +435,7 @@ export class PropertyFormComponent implements OnInit {
   isEdit = false;
   propertyId: number | null = null;
   submitting = false;
-  mediaItems: { imageUrl: string; mediaType: 'IMAGE' | 'VIDEO' }[] = [];
+  mediaItems: PropertyMediaItem[] = [];
   newMediaUrl = '';
   newMediaType: 'IMAGE' | 'VIDEO' = 'IMAGE';
   stateNames = getStateNames();
@@ -505,10 +521,7 @@ export class PropertyFormComponent implements OnInit {
         });
         this.updateCitiesForState();
         if (p.images && p.images.length) {
-          this.mediaItems = p.images.map(img => ({
-            imageUrl: img.imageUrl,
-            mediaType: img.mediaType || 'IMAGE',
-          }));
+          this.mediaItems = p.images.map(img => this.buildMediaItem(img.imageUrl, img.mediaType || 'IMAGE'));
         } else {
           this.mediaItems = [];
         }
@@ -517,21 +530,49 @@ export class PropertyFormComponent implements OnInit {
     });
   }
 
-  imagePreviewUrl(url: string): string {
-    return resolvePropertyImageUrl(url, this.config.apiUrl);
+  private buildMediaItem(imageUrl: string, mediaType: 'IMAGE' | 'VIDEO'): PropertyMediaItem {
+    const url = (imageUrl || '').trim();
+    if (mediaType === 'VIDEO') {
+      const kind = getPropertyVideoPlayerKind(url);
+      const embed = kind === 'embed' ? resolveVideoEmbedUrl(url) : '';
+      return {
+        imageUrl: url,
+        mediaType,
+        previewImageUrl: resolvePropertyImageUrl(url, this.config.apiUrl),
+        playerKind: kind,
+        nativePlayUrl: kind === 'native' ? resolveNativeVideoUrl(url, this.config.apiUrl) : undefined,
+        safeEmbedUrl: embed
+          ? this.sanitizer.bypassSecurityTrustResourceUrl(embed)
+          : undefined,
+      };
+    }
+    return {
+      imageUrl: url,
+      mediaType,
+      previewImageUrl: resolvePropertyImageUrl(url, this.config.apiUrl),
+    };
   }
 
-  videoPlayerKind(url: string): PropertyVideoPlayerKind {
-    return getPropertyVideoPlayerKind(url);
-  }
-
-  safeVideoEmbedUrl(url: string): SafeResourceUrl {
-    const embed = resolveVideoEmbedUrl(url);
-    return this.sanitizer.bypassSecurityTrustResourceUrl(embed || 'about:blank');
-  }
-
-  nativeVideoPreviewUrl(url: string): string {
-    return resolveNativeVideoUrl(url, this.config.apiUrl);
+  uploadMediaFile(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/');
+    const isImage = file.type.startsWith('image/');
+    if (!isVideo && !isImage) {
+      this.toast.error('Choose an image or video file');
+      return;
+    }
+    this.api.uploadFile('/upload', file).subscribe({
+      next: (res) => {
+        this.mediaItems.push(this.buildMediaItem(res.url, isVideo ? 'VIDEO' : 'IMAGE'));
+        this.toast.success(isVideo ? 'Video uploaded' : 'Image uploaded');
+        (event.target as HTMLInputElement).value = '';
+      },
+      error: (err: unknown) => {
+        this.toast.error((err as { error?: { message?: string } })?.error?.message || 'Upload failed');
+        (event.target as HTMLInputElement).value = '';
+      },
+    });
   }
 
   onImageError(event: Event) {
@@ -550,10 +591,7 @@ export class PropertyFormComponent implements OnInit {
       this.toast.warning('URL must start with http:// or https://');
       return;
     }
-    this.mediaItems.push({
-      imageUrl: url,
-      mediaType: this.newMediaType,
-    });
+    this.mediaItems.push(this.buildMediaItem(url, this.newMediaType));
     this.newMediaUrl = '';
     this.toast.success(`${this.newMediaType === 'VIDEO' ? 'Video' : 'Image'} URL added`);
   }

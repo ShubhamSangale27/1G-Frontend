@@ -14,13 +14,14 @@ import { PropertyMapComponent } from '../../shared/property-map/property-map.com
 import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
 import {
   resolvePropertyImageUrl,
-  getPropertyVideoPlayerKind,
-  resolveVideoEmbedUrl,
-  resolveNativeVideoUrl,
   resolveVideoCardPosterUrl,
-  type PropertyVideoPlayerKind,
 } from '../../core/utils/image-url.util';
 import { buildGallerySlides, type GallerySlide } from '../../core/utils/property-gallery.util';
+
+interface RenderableGallerySlide extends GallerySlide {
+  safeEmbedUrl?: SafeResourceUrl;
+  thumbUrl: string;
+}
 import { SILENT_NOT_FOUND } from '../../core/http-context.tokens';
 
 /** User's active site visit for this property (PENDING_ASSIGNMENT or ASSIGNED). Used to show Reschedule instead of Book. */
@@ -102,7 +103,7 @@ interface SiteVisitDto {
                 <iframe
                   *ngSwitchCase="'video-embed'"
                   class="hero-embed hero-media"
-                  [src]="safeVideoEmbedUrl(slide.sourceUrl)"
+                  [src]="slide.safeEmbedUrl"
                   title="Property video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowfullscreen
@@ -111,7 +112,7 @@ interface SiteVisitDto {
                 <video
                   *ngSwitchCase="'video-native'"
                   class="hero-video hero-media"
-                  [src]="nativeVideoUrl(slide.sourceUrl)"
+                  [src]="slide.nativePlayUrl"
                   controls
                   playsinline
                   preload="metadata"
@@ -136,7 +137,7 @@ interface SiteVisitDto {
               (click)="galleryIndex = i; $event.stopPropagation()"
               (dblclick)="slide.kind === 'photo' && openZoom(imageFullUrl(slide.sourceUrl))"
             >
-              <img [src]="slideThumbUrl(slide)" alt="" loading="lazy" />
+              <img [src]="slide.thumbUrl" alt="" loading="lazy" />
               <span class="thumb-video-icon" *ngIf="slide.kind !== 'photo'" aria-hidden="true">▶</span>
             </button>
           </div>
@@ -969,7 +970,7 @@ export class PropertyDetailComponent implements OnInit {
   property: Property | null = null;
   loading = true;
   loadError = '';
-  gallerySlides: GallerySlide[] = [];
+  gallerySlides: RenderableGallerySlide[] = [];
   galleryIndex = 0;
   inWatchlist = false;
   /** Avoid global error toast when optional "my visit" is absent (404 legacy) or 204. */
@@ -1026,19 +1027,6 @@ export class PropertyDetailComponent implements OnInit {
     return resolvePropertyImageUrl(url, this.config.apiUrl);
   }
 
-  videoPlayerKind(url: string): PropertyVideoPlayerKind {
-    return getPropertyVideoPlayerKind(url);
-  }
-
-  safeVideoEmbedUrl(url: string): SafeResourceUrl {
-    const embed = resolveVideoEmbedUrl(url);
-    return this.sanitizer.bypassSecurityTrustResourceUrl(embed || 'about:blank');
-  }
-
-  nativeVideoUrl(url: string): string {
-    return resolveNativeVideoUrl(url, this.config.apiUrl);
-  }
-
   openZoom(url: string) {
     if (!url) return;
     this.zoomUrl = url;
@@ -1055,7 +1043,7 @@ export class PropertyDetailComponent implements OnInit {
 
   readonly heroPlaceholderUrl = 'https://placehold.co/1200x675?text=Property';
 
-  get currentSlide(): GallerySlide | null {
+  get currentSlide(): RenderableGallerySlide | null {
     if (!this.gallerySlides.length) return null;
     const i = Math.min(Math.max(0, this.galleryIndex), this.gallerySlides.length - 1);
     return this.gallerySlides[i];
@@ -1123,14 +1111,24 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   rebuildGallery(): void {
-    this.gallerySlides = buildGallerySlides(this.property?.images);
+    this.gallerySlides = buildGallerySlides(this.property?.images, this.config.apiUrl).map((slide) =>
+      this.toRenderableSlide(slide),
+    );
     this.galleryIndex = 0;
   }
 
-  slideThumbUrl(slide: GallerySlide): string {
-    if (slide.kind === 'photo') return this.imageFullUrl(slide.sourceUrl);
-    const poster = resolveVideoCardPosterUrl(slide.sourceUrl, this.config.apiUrl);
-    return poster || 'https://placehold.co/200x200/0f172a/94a3b8?text=%E2%96%B6';
+  private toRenderableSlide(slide: GallerySlide): RenderableGallerySlide {
+    const thumbUrl = slide.kind === 'photo'
+      ? this.imageFullUrl(slide.sourceUrl)
+      : (resolveVideoCardPosterUrl(slide.sourceUrl, this.config.apiUrl)
+        || 'https://placehold.co/200x200/0f172a/94a3b8?text=%E2%96%B6');
+    return {
+      ...slide,
+      thumbUrl,
+      safeEmbedUrl: slide.kind === 'video-embed' && slide.embedPlayUrl
+        ? this.sanitizer.bypassSecurityTrustResourceUrl(slide.embedPlayUrl)
+        : undefined,
+    };
   }
 
   prevGallery(): void {

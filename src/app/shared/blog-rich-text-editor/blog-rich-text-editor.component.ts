@@ -32,7 +32,8 @@ import { CommonModule } from '@angular/common';
     </div>
   `,
   styles: [`
-    .rte { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
+    :host { display: block; width: 100%; }
+    .rte { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); width: 100%; }
     .rte-toolbar { display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0.45rem; border-bottom: 1px solid var(--border-light); background: var(--bg); }
     .rte-btn {
       border: 1px solid var(--border);

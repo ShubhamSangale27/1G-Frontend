@@ -8,8 +8,9 @@ import {
 } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
-import { Observable, catchError, filter, finalize, map, share, switchMap, take, throwError } from 'rxjs';
+import { Observable, catchError, filter, finalize, map, share, switchMap, take, tap, throwError } from 'rxjs';
 import { ConfigService } from '../services/config.service';
+import { AuthService } from '../services/auth.service';
 
 const RETRY_HEADER = 'X-1g-Auth-Retry';
 
@@ -37,13 +38,6 @@ function isAnonymousAuthUrl(url: string): boolean {
     url.includes('/auth/refresh') ||
     url.includes('/auth/forgot-password')
   );
-}
-
-function clearAuthStorage(): void {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  localStorage.removeItem('userRole');
 }
 
 let refreshInFlight: Observable<void> | null = null;
@@ -100,10 +94,21 @@ export const authRefreshInterceptor: HttpInterceptorFn = (req, next) => {
       const backend = inject(HttpBackend);
       const config = inject(ConfigService);
       const toast = inject(ToastrService);
+      const auth = inject(AuthService);
 
       return sharedRefresh(backend, config.apiUrl, refreshToken).pipe(
+        tap(() => {
+          const userJson = localStorage.getItem('user');
+          if (userJson) {
+            try {
+              auth.updateLocalUser(JSON.parse(userJson));
+            } catch {
+              auth.clearSession();
+            }
+          }
+        }),
         catchError(() => {
-          clearAuthStorage();
+          auth.clearSession();
           toast.error('Your session has expired. Please sign in again.');
           return throwError(() => err);
         }),

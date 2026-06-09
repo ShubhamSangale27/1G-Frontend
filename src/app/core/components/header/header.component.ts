@@ -26,7 +26,7 @@ import { resolvePropertyImageUrl } from '../../utils/image-url.util';
           <a routerLink="/blog" routerLinkActive="active">
             <span>Blog</span>
           </a>
-          <ng-container *ngIf="auth.user() as u">
+          <ng-container *ngIf="auth.isLoggedIn() && auth.user() as u">
             <a routerLink="/dashboard" routerLinkActive="active">
               <span>Dashboard</span>
             </a>
@@ -36,13 +36,13 @@ import { resolvePropertyImageUrl } from '../../utils/image-url.util';
             <a routerLink="/property/new" class="btn btn-accent btn-sm">
               <span>+ List Property</span>
             </a>
-            <a *ngIf="auth.getRole() === 'AGENT' || auth.getRole() === 'ADMIN'" routerLink="/agent" routerLinkActive="active">
+            <a *ngIf="u.role === 'AGENT' || u.role === 'ADMIN'" routerLink="/agent" routerLinkActive="active">
               <span>Agent</span>
             </a>
-            <a *ngIf="auth.getRole() === 'ADMIN'" routerLink="/admin" routerLinkActive="active">
+            <a *ngIf="u.role === 'ADMIN'" routerLink="/admin" routerLinkActive="active">
               <span>Admin</span>
             </a>
-            <a *ngIf="auth.getRole() === 'BLOG' || auth.getRole() === 'ADMIN'" routerLink="/blog-editor" routerLinkActive="active">
+            <a *ngIf="u.role === 'BLOG' || u.role === 'ADMIN'" routerLink="/blog-editor" routerLinkActive="active">
               <span>Blog Studio</span>
             </a>
             <div class="user-menu">
@@ -60,7 +60,7 @@ import { resolvePropertyImageUrl } from '../../utils/image-url.util';
             </div>
             <button type="button" class="btn btn-outline btn-sm" (click)="auth.logout()">Logout</button>
           </ng-container>
-          <ng-container *ngIf="!auth.user()">
+          <ng-container *ngIf="!auth.isLoggedIn()">
             <a routerLink="/login" routerLinkActive="active">Login</a>
             <a routerLink="/signup" class="btn btn-primary btn-sm">Sign Up</a>
           </ng-container>

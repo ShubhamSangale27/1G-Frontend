@@ -56,8 +56,41 @@ export class AuthService {
     private api: ApiService,
     private router: Router
   ) {
-    const u = localStorage.getItem('user');
-    if (u) this.userSignal.set(JSON.parse(u));
+    this.hydrateSessionFromStorage();
+  }
+
+  /** Restore session only when both token and user exist; otherwise clear stale auth data. */
+  private hydrateSessionFromStorage(): void {
+    const token = localStorage.getItem('accessToken');
+    const userJson = localStorage.getItem('user');
+    if (!token || !userJson) {
+      if (token || userJson || localStorage.getItem('userRole') || localStorage.getItem('refreshToken')) {
+        this.clearSessionStorage();
+      }
+      this.userSignal.set(null);
+      return;
+    }
+    try {
+      const user = JSON.parse(userJson) as User;
+      this.userSignal.set(user);
+      if (user.role) {
+        localStorage.setItem('userRole', user.role);
+      }
+    } catch {
+      this.clearSession();
+    }
+  }
+
+  clearSession(): void {
+    this.clearSessionStorage();
+    this.userSignal.set(null);
+  }
+
+  private clearSessionStorage(): void {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
   }
 
   /** Login POST; caller runs toasts/navigation inside NgZone. Session is set in `tap` on success. */
@@ -78,11 +111,7 @@ export class AuthService {
 
   logout() {
     this.api.post('/auth/logout', {}).subscribe({ error: () => {} });
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('userRole');
-    this.userSignal.set(null);
+    this.clearSession();
     this.router.navigate(['/']);
   }
 
@@ -99,7 +128,7 @@ export class AuthService {
   }
 
   getRole(): string {
-    return localStorage.getItem('userRole') || '';
+    return this.userSignal()?.role || '';
   }
 
   /** Call after OTP verification (verify-signup) to set session; caller should redirect (e.g. to /dashboard). */
@@ -161,5 +190,8 @@ export class AuthService {
   updateLocalUser(user: User): void {
     this.userSignal.set(user);
     localStorage.setItem('user', JSON.stringify(user));
+    if (user.role) {
+      localStorage.setItem('userRole', user.role);
+    }
   }
 }

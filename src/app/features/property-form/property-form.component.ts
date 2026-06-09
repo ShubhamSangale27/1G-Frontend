@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -16,6 +16,7 @@ import {
   resolveVideoCardPosterUrl,
   isAllowedImageUrl,
   isAllowedVideoUrl,
+  upgradeInsecureMediaUrl,
 } from '../../core/utils/image-url.util';
 
 interface PropertyMediaItem {
@@ -175,7 +176,7 @@ interface PropertyMediaItem {
               <div class="add-url-row">
                 <div class="form-group add-url-input">
                   <label>Media URL</label>
-                  <input type="url" [(ngModel)]="newMediaUrl" [ngModelOptions]="{standalone: true}" placeholder="Google Drive, public image, or YouTube URL" (keydown.enter)="addMediaByUrl(); $event.preventDefault()" />
+                  <input type="text" [(ngModel)]="newMediaUrl" [ngModelOptions]="{standalone: true}" placeholder="Google Drive, public image, or YouTube URL" (keydown.enter)="onMediaUrlEnter($event)" />
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label>Type</label>
@@ -187,6 +188,7 @@ interface PropertyMediaItem {
                 <button type="button" class="btn btn-primary add-url-btn" (click)="addMediaByUrl()">Add URL</button>
               </div>
               <small class="images-hint">Paste a public image URL, Google Drive image link, or YouTube video URL. Media is loaded directly from the URL — no file uploads.</small>
+              <p class="media-count" *ngIf="mediaItems.length">{{ mediaItems.length }} media item{{ mediaItems.length === 1 ? '' : 's' }} added</p>
               <div class="image-preview-row" *ngFor="let media of mediaItems; let i = index">
                 <img *ngIf="media.mediaType === 'IMAGE'" [src]="media.previewImageUrl" alt="Preview" class="image-preview" (error)="onImageError($event)" />
                 <div *ngIf="media.mediaType === 'VIDEO' && media.safeEmbedUrl" class="video-preview-wrap">
@@ -200,6 +202,7 @@ interface PropertyMediaItem {
                     loading="lazy"
                   ></iframe>
                 </div>
+                <div *ngIf="media.mediaType === 'VIDEO' && !media.safeEmbedUrl" class="preview-placeholder">Video preview unavailable</div>
                 <div class="image-actions">
                   <span class="badge badge-type-inline">{{ media.mediaType }}</span>
                   <button type="button" class="btn btn-outline btn-sm" (click)="removeMedia(i)">Remove</button>
@@ -323,6 +326,12 @@ interface PropertyMediaItem {
     .images-hint {
       margin-bottom: 0.25rem;
     }
+    .media-count {
+      margin: 0;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
     .image-input {
       display: flex;
       gap: 0.5rem;
@@ -429,7 +438,8 @@ export class PropertyFormComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private toast: ToastrService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private cdr: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
       title: ['', Validators.required],
@@ -534,14 +544,34 @@ export class PropertyFormComponent implements OnInit {
     img.onerror = null;
   }
 
+  onMediaUrlEnter(event: Event) {
+    event.preventDefault();
+    this.addMediaByUrl();
+  }
+
+  private normalizeMediaUrl(raw: string): string {
+    let url = (raw || '').trim();
+    if (!url) return '';
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url.replace(/^\/+/, '')}`;
+    }
+    return upgradeInsecureMediaUrl(url);
+  }
+
+  private isAcceptableImageUrl(url: string): boolean {
+    if (isAllowedImageUrl(url)) return true;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
   addMediaByUrl() {
-    const url = (this.newMediaUrl || '').trim();
+    const url = this.normalizeMediaUrl(this.newMediaUrl);
     if (!url) {
       this.toast.warning('Enter a media URL');
-      return;
-    }
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      this.toast.warning('URL must start with http:// or https://');
       return;
     }
     if (this.newMediaType === 'VIDEO') {
@@ -549,17 +579,24 @@ export class PropertyFormComponent implements OnInit {
         this.toast.error('Video must be a YouTube or Google Drive link');
         return;
       }
-    } else if (!isAllowedImageUrl(url)) {
-      this.toast.error('Image must be a public image URL or Google Drive link');
+    } else if (!this.isAcceptableImageUrl(url)) {
+      this.toast.error('Enter a valid image URL (http:// or https://)');
       return;
     }
-    this.mediaItems.push(this.buildMediaItem(url, this.newMediaType));
+    if (this.mediaItems.some(m => m.imageUrl === url && m.mediaType === this.newMediaType)) {
+      this.toast.warning('This media URL is already in the list');
+      return;
+    }
+    this.mediaItems = [...this.mediaItems, this.buildMediaItem(url, this.newMediaType)];
     this.newMediaUrl = '';
-    this.toast.success(`${this.newMediaType === 'VIDEO' ? 'Video' : 'Image'} URL added`);
+    const label = this.newMediaType === 'VIDEO' ? 'Video' : 'Image';
+    this.toast.success(`${label} added (${this.mediaItems.length} total)`);
+    this.cdr.markForCheck();
   }
 
   removeMedia(index: number) {
-    this.mediaItems.splice(index, 1);
+    this.mediaItems = this.mediaItems.filter((_, i) => i !== index);
+    this.cdr.markForCheck();
   }
 
   onSubmit() {

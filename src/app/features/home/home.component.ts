@@ -3,10 +3,21 @@ import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { ConfigService } from '../../core/services/config.service';
+import { CarouselSlide } from '../../core/models/carousel.model';
 import { Property } from '../../core/models/property.model';
+import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 import { PropertyCardComponent } from '../../shared/property-card/property-card.component';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { CarouselModule } from 'ngx-bootstrap/carousel';
+
+interface HomeCarouselSlide {
+  id?: number;
+  imageUrl: string;
+  linkUrl?: string;
+  altText?: string;
+  resolvedImageUrl: string;
+}
 
 @Component({
   selector: 'app-home',
@@ -15,20 +26,13 @@ import { CarouselModule } from 'ngx-bootstrap/carousel';
   template: `
     <section class="home-carousel-wrap" aria-label="Featured banners">
       <carousel>
-        <slide>
-          <a href="#" target="_blank" rel="noopener" class="carouselimg">
-            <img src="assets/images/carousel/1.jpg" alt="Banner 1" />
+        <slide *ngFor="let slide of displayCarouselSlides">
+          <a *ngIf="slide.linkUrl" [href]="slide.linkUrl" target="_blank" rel="noopener" class="carouselimg">
+            <img [src]="slide.resolvedImageUrl" [alt]="slide.altText || 'Homepage banner'" />
           </a>
-        </slide>
-        <slide>
-          <a href="#" target="_blank" rel="noopener" class="carouselimg">
-            <img src="assets/images/carousel/2.jpg" alt="Banner 2" />
-          </a>
-        </slide>
-        <slide>
-          <a href="#" target="_blank" rel="noopener" class="carouselimg">
-            <img src="assets/images/carousel/3.jpg" alt="Banner 3" />
-          </a>
+          <div *ngIf="!slide.linkUrl" class="carouselimg">
+            <img [src]="slide.resolvedImageUrl" [alt]="slide.altText || 'Homepage banner'" />
+          </div>
         </slide>
       </carousel>
     </section>
@@ -723,6 +727,13 @@ export class HomeComponent implements OnInit {
   loading = true;
   searchType = 'buy';
   searchQuery = '';
+  displayCarouselSlides: HomeCarouselSlide[] = [];
+
+  private readonly fallbackCarouselSlides: HomeCarouselSlide[] = [
+    { imageUrl: 'assets/images/carousel/1.jpg', resolvedImageUrl: 'assets/images/carousel/1.jpg', altText: 'Banner 1' },
+    { imageUrl: 'assets/images/carousel/2.jpg', resolvedImageUrl: 'assets/images/carousel/2.jpg', altText: 'Banner 2' },
+    { imageUrl: 'assets/images/carousel/3.jpg', resolvedImageUrl: 'assets/images/carousel/3.jpg', altText: 'Banner 3' },
+  ];
 
   readonly services: { img: string; title: string; description: string }[] = [
     {
@@ -781,7 +792,12 @@ export class HomeComponent implements OnInit {
     },
   ];
 
-  constructor(private api: ApiService, private router: Router, private cdr: ChangeDetectorRef) {}
+  constructor(
+    private api: ApiService,
+    private config: ConfigService,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   openQuotePopup(): void {
     const w = window as unknown as { showpopup?: () => void };
@@ -800,7 +816,7 @@ export class HomeComponent implements OnInit {
   }
 
   ngOnInit() {
-    
+    this.loadCarouselSlides();
     this.api.get<Property[]>('/properties/public/featured').subscribe({
       next: (data) => {
         this.featured = Array.isArray(data) ? data : [];
@@ -820,5 +836,33 @@ export class HomeComponent implements OnInit {
     if (this.searchType === 'rent') params.listingType = 'RENT';
     else params.listingType = 'SALE';
     this.router.navigate(['/search'], { queryParams: params });
+  }
+
+  private loadCarouselSlides() {
+    this.api.get<CarouselSlide[]>('/carousel/slides').subscribe({
+      next: (slides) => {
+        const list = Array.isArray(slides) ? slides : [];
+        if (list.length) {
+          this.displayCarouselSlides = list.map(slide => this.toDisplaySlide(slide));
+        } else {
+          this.displayCarouselSlides = [...this.fallbackCarouselSlides];
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.displayCarouselSlides = [...this.fallbackCarouselSlides];
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private toDisplaySlide(slide: CarouselSlide): HomeCarouselSlide {
+    return {
+      id: slide.id,
+      imageUrl: slide.imageUrl,
+      linkUrl: slide.linkUrl,
+      altText: slide.altText,
+      resolvedImageUrl: resolvePropertyImageUrl(slide.imageUrl, this.config.apiUrl) || slide.imageUrl,
+    };
   }
 }

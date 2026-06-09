@@ -1,11 +1,15 @@
 import { Component, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { ConfigService } from '../../core/services/config.service';
+import { CarouselSlide } from '../../core/models/carousel.model';
 import { Property, PageResponse } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
+import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 
 interface SiteVisitRow {
   id: number;
@@ -86,6 +90,81 @@ interface UserRow {
               <div class="metric-value">₹ {{ (metrics.revenueLast30Days || 0) | number:'1.0-0' }}</div>
               <div class="metric-label">Revenue (30d)</div>
             </div>
+          </div>
+        </div>
+
+        <div class="pending-section card carousel-section">
+          <div class="section-header">
+            <h2>Homepage Carousel</h2>
+            <span class="badge badge-info">{{ carouselSlides.length }} Slides</span>
+          </div>
+          <p class="carousel-hint">Paste a public image URL or Google Drive image link. For Google Drive, set sharing to &quot;Anyone with the link&quot;. Images load directly from the URL — no file uploads. Any image size will auto-fit the carousel.</p>
+
+          <div class="carousel-add-form">
+            <div class="carousel-form-row">
+              <div class="form-group">
+                <label>Image URL *</label>
+                <input type="text" class="form-input" [(ngModel)]="newCarousel.imageUrl" placeholder="https://… or Google Drive link" />
+              </div>
+              <div class="form-group">
+                <label>Link URL (optional)</label>
+                <input type="text" class="form-input" [(ngModel)]="newCarousel.linkUrl" placeholder="https://…" />
+              </div>
+              <div class="form-group">
+                <label>Alt text</label>
+                <input type="text" class="form-input" [(ngModel)]="newCarousel.altText" placeholder="Banner description" />
+              </div>
+              <button type="button" class="btn btn-primary" (click)="addCarouselSlide()" [disabled]="savingCarousel">
+                {{ savingCarousel ? 'Adding…' : 'Add slide' }}
+              </button>
+            </div>
+            <div class="carousel-live-preview" *ngIf="newCarouselPreviewUrl()">
+              <span class="preview-label">Preview</span>
+              <img [src]="newCarouselPreviewUrl()" alt="New slide preview" class="carousel-preview-img" (error)="onCarouselImageError($event)" />
+            </div>
+          </div>
+
+          <div class="loading-state" *ngIf="loadingCarousel">
+            <p>Loading carousel slides…</p>
+          </div>
+
+          <div class="carousel-list" *ngIf="!loadingCarousel && carouselSlides.length">
+            <div class="carousel-item" *ngFor="let slide of carouselSlides; let i = index">
+              <img [src]="carouselImageUrl(slide.imageUrl)" [alt]="slide.altText || 'Carousel slide'" class="carousel-thumb" (error)="onCarouselImageError($event)" />
+              <div class="carousel-item-fields">
+                <div class="form-group">
+                  <label>Image URL</label>
+                  <input type="text" class="form-input sm" [(ngModel)]="slide.imageUrl" />
+                </div>
+                <div class="form-group">
+                  <label>Link URL</label>
+                  <input type="text" class="form-input sm" [(ngModel)]="slide.linkUrl" />
+                </div>
+                <div class="form-group">
+                  <label>Alt text</label>
+                  <input type="text" class="form-input sm" [(ngModel)]="slide.altText" />
+                </div>
+                <label class="active-toggle">
+                  <input type="checkbox" [(ngModel)]="slide.active" (change)="saveCarouselSlide(slide)" />
+                  Active on homepage
+                </label>
+              </div>
+              <div class="carousel-item-actions">
+                <button type="button" class="btn btn-outline btn-sm" (click)="moveCarouselSlide(i, -1)" [disabled]="i === 0 || reorderingCarousel[slide.id]">↑</button>
+                <button type="button" class="btn btn-outline btn-sm" (click)="moveCarouselSlide(i, 1)" [disabled]="i === carouselSlides.length - 1 || reorderingCarousel[slide.id]">↓</button>
+                <button type="button" class="btn btn-primary btn-sm" (click)="saveCarouselSlide(slide)" [disabled]="savingCarouselId[slide.id]">
+                  {{ savingCarouselId[slide.id] ? 'Saving…' : 'Save' }}
+                </button>
+                <button type="button" class="btn btn-outline btn-sm btn-danger" (click)="deleteCarouselSlide(slide)" [disabled]="deletingCarousel[slide.id]">
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="!loadingCarousel && !carouselSlides.length">
+            <div class="empty-icon">🖼</div>
+            <p>No carousel slides yet. Add an image URL above or the homepage will show default banners.</p>
           </div>
         </div>
 
@@ -464,6 +543,105 @@ interface UserRow {
       padding: 2.5rem;
       border: 2px solid var(--border);
     }
+    .carousel-hint {
+      margin: 0 0 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    .carousel-add-form {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .carousel-form-row {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr 1fr auto;
+      gap: 0.75rem;
+      align-items: end;
+    }
+    .carousel-live-preview {
+      margin-top: 1rem;
+    }
+    .preview-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .carousel-preview-img {
+      width: 100%;
+      max-height: 140px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--border);
+    }
+    .carousel-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .carousel-item {
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      gap: 1rem;
+      align-items: start;
+      padding: 1rem;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .carousel-thumb {
+      width: 140px;
+      height: 70px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .carousel-item-fields {
+      display: grid;
+      gap: 0.5rem;
+    }
+    .carousel-item-fields .form-group {
+      margin: 0;
+    }
+    .carousel-item-fields label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .active-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+    }
+    .carousel-item-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-width: 5.5rem;
+    }
+    @media (max-width: 900px) {
+      .carousel-form-row {
+        grid-template-columns: 1fr;
+      }
+      .carousel-item {
+        grid-template-columns: 1fr;
+      }
+      .carousel-thumb {
+        width: 100%;
+        height: 120px;
+      }
+      .carousel-item-actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+    }
     .section-header {
       display: flex;
       justify-content: space-between;
@@ -707,8 +885,21 @@ export class AdminComponent implements OnInit {
   deletingUser: Record<number, boolean> = {};
   changingUserRole: Record<number, boolean> = {};
   currentUserId: number | null = null;
+  carouselSlides: CarouselSlide[] = [];
+  loadingCarousel = false;
+  savingCarousel = false;
+  savingCarouselId: Record<number, boolean> = {};
+  deletingCarousel: Record<number, boolean> = {};
+  reorderingCarousel: Record<number, boolean> = {};
+  newCarousel = { imageUrl: '', linkUrl: '', altText: '' };
 
-  constructor(private api: ApiService, private toast: ToastrService, private cdr: ChangeDetectorRef, private ngZone: NgZone) {}
+  constructor(
+    private api: ApiService,
+    private config: ConfigService,
+    private toast: ToastrService,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) {}
 
   ngOnInit() {
     const userRaw = localStorage.getItem('user');
@@ -742,6 +933,7 @@ export class AdminComponent implements OnInit {
     this.loadAllVisits();
     this.loadAllProperties();
     this.loadAllUsers();
+    this.loadCarouselSlides();
   }
 
   isNewProperty(createdAt: string | undefined): boolean {
@@ -1064,6 +1256,134 @@ export class AdminComponent implements OnInit {
         this.pending = this.pending.filter((p) => p.id !== id);
       },
       error: (e) => this.toast.error(e.error?.message || 'Failed'),
+    });
+  }
+
+  loadCarouselSlides() {
+    this.loadingCarousel = true;
+    this.api.get<CarouselSlide[]>('/admin/carousel/slides').subscribe({
+      next: (slides) => {
+        this.carouselSlides = Array.isArray(slides) ? slides : [];
+        this.loadingCarousel = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingCarousel = false;
+        this.toast.error('Failed to load carousel slides');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  carouselImageUrl(url: string): string {
+    return resolvePropertyImageUrl(url, this.config.apiUrl) || url;
+  }
+
+  newCarouselPreviewUrl(): string {
+    const raw = (this.newCarousel.imageUrl || '').trim();
+    if (!raw) return '';
+    return this.carouselImageUrl(raw.startsWith('http') ? raw : `https://${raw.replace(/^\/+/, '')}`);
+  }
+
+  onCarouselImageError(event: Event) {
+    const img = event.target as HTMLImageElement;
+    img.src = 'https://placehold.co/280x140?text=Preview+unavailable';
+    img.onerror = null;
+  }
+
+  addCarouselSlide() {
+    const imageUrl = (this.newCarousel.imageUrl || '').trim();
+    if (!imageUrl) {
+      this.toast.warning('Image URL is required');
+      return;
+    }
+    this.savingCarousel = true;
+    this.api.post<CarouselSlide>('/admin/carousel/slides', {
+      imageUrl,
+      linkUrl: (this.newCarousel.linkUrl || '').trim() || undefined,
+      altText: (this.newCarousel.altText || '').trim() || undefined,
+      active: true,
+    }).subscribe({
+      next: () => {
+        this.savingCarousel = false;
+        this.newCarousel = { imageUrl: '', linkUrl: '', altText: '' };
+        this.toast.success('Carousel slide added');
+        this.loadCarouselSlides();
+      },
+      error: (e) => {
+        this.savingCarousel = false;
+        this.toast.error(e.error?.message || 'Failed to add slide');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  saveCarouselSlide(slide: CarouselSlide) {
+    this.savingCarouselId[slide.id] = true;
+    this.api.put<CarouselSlide>('/admin/carousel/slides/' + slide.id, {
+      imageUrl: (slide.imageUrl || '').trim(),
+      linkUrl: (slide.linkUrl || '').trim() || null,
+      altText: (slide.altText || '').trim() || null,
+      displayOrder: slide.displayOrder,
+      active: slide.active,
+    }).subscribe({
+      next: (updated) => {
+        this.savingCarouselId[slide.id] = false;
+        Object.assign(slide, updated);
+        this.toast.success('Carousel slide saved');
+        this.cdr.markForCheck();
+      },
+      error: (e) => {
+        this.savingCarouselId[slide.id] = false;
+        this.toast.error(e.error?.message || 'Failed to save slide');
+        this.loadCarouselSlides();
+      },
+    });
+  }
+
+  moveCarouselSlide(index: number, delta: number) {
+    const targetIndex = index + delta;
+    if (targetIndex < 0 || targetIndex >= this.carouselSlides.length) return;
+    const slides = [...this.carouselSlides];
+    [slides[index], slides[targetIndex]] = [slides[targetIndex], slides[index]];
+    slides.forEach((slide, idx) => {
+      slide.displayOrder = idx;
+      this.reorderingCarousel[slide.id] = true;
+    });
+    this.carouselSlides = slides;
+    this.cdr.markForCheck();
+    forkJoin(
+      slides.map(slide =>
+        this.api.put<CarouselSlide>('/admin/carousel/slides/' + slide.id, { displayOrder: slide.displayOrder })
+      )
+    ).subscribe({
+      next: () => {
+        slides.forEach(slide => { this.reorderingCarousel[slide.id] = false; });
+        this.toast.success('Slide order updated');
+        this.loadCarouselSlides();
+      },
+      error: () => {
+        slides.forEach(slide => { this.reorderingCarousel[slide.id] = false; });
+        this.toast.error('Failed to reorder slides');
+        this.loadCarouselSlides();
+      },
+    });
+  }
+
+  deleteCarouselSlide(slide: CarouselSlide) {
+    if (!confirm('Delete this carousel slide?')) return;
+    this.deletingCarousel[slide.id] = true;
+    this.api.delete('/admin/carousel/slides/' + slide.id).subscribe({
+      next: () => {
+        this.deletingCarousel[slide.id] = false;
+        this.toast.success('Carousel slide deleted');
+        this.loadCarouselSlides();
+      },
+      error: (e) => {
+        this.deletingCarousel[slide.id] = false;
+        this.toast.error(e.error?.message || 'Failed to delete slide');
+        this.cdr.markForCheck();
+      },
     });
   }
 }

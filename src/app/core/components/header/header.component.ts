@@ -4,17 +4,17 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { ConfigService } from '../../services/config.service';
 import { resolvePropertyImageUrl } from '../../utils/image-url.util';
+import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive],
+  imports: [CommonModule, RouterLink, RouterLinkActive, BrandLogoComponent],
   template: `
     <header class="header">
       <div class="container header-inner">
-        <a routerLink="/" class="logo">
-          <span class="logo-icon">🏠</span>
-          <span>1Guntha</span>
+        <a routerLink="/" class="logo" aria-label="1Guntha home">
+          <app-brand-logo variant="compact" />
         </a>
         <nav class="nav">
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
@@ -90,22 +90,10 @@ import { resolvePropertyImageUrl } from '../../utils/image-url.util';
       box-sizing: border-box;
     }
     .logo {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 1.625rem;
-      background: var(--primary-gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
       text-decoration: none;
-      letter-spacing: -0.5px;
-    }
-    .logo-icon {
-      font-size: 1.875rem;
-      filter: drop-shadow(0 2px 4px rgba(14, 165, 233, 0.3));
+      flex-shrink: 0;
     }
     .nav {
       display: flex;
@@ -227,12 +215,6 @@ import { resolvePropertyImageUrl } from '../../utils/image-url.util';
       }
       .user-menu .user-info {
         display: none;
-      }
-      .logo {
-        font-size: 1.25rem;
-      }
-      .logo-icon {
-        font-size: 1.5rem;
       }
     }
     @media (max-width: 480px) {

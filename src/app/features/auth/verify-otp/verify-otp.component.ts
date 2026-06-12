@@ -8,20 +8,21 @@ import { AuthService, AuthResponse } from '../../../core/services/auth.service';
 import { SKIP_GLOBAL_ERROR_TOAST } from '../../../core/http-context.tokens';
 import { ToastrService } from 'ngx-toastr';
 import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.util';
+import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-logo.component';
 
 const PENDING_VERIFY_KEY = 'pendingVerification';
 
 @Component({
   selector: 'app-verify-otp',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, CommonModule],
+  imports: [ReactiveFormsModule, RouterLink, CommonModule, BrandLogoComponent],
   template: `
     <div class="auth-page">
       <div class="auth-background"></div>
       <div class="auth-container">
         <div class="card auth-card">
           <div class="auth-header">
-            <div class="auth-logo">📱</div>
+            <app-brand-logo variant="auth" />
             <h1>Verify your mobile</h1>
             <p>Enter the 6-digit OTP sent to your mobile to complete registration</p>
           </div>
@@ -75,7 +76,6 @@ const PENDING_VERIFY_KEY = 'pendingVerification';
     .auth-container { position: relative; z-index: 1; width: 100%; max-width: 450px; }
     .auth-card { padding: 3rem; border: 2px solid var(--border); box-shadow: var(--shadow-2xl); }
     .auth-header { text-align: center; margin-bottom: 2rem; }
-    .auth-logo { font-size: 3rem; margin-bottom: 0.75rem; }
     .auth-header h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text); }
     .auth-header p { color: var(--text-muted); font-size: 0.9375rem; margin: 0; }
     .form-group { margin-bottom: 1.25rem; }

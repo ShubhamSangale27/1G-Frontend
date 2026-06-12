@@ -6,18 +6,19 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastrService } from 'ngx-toastr';
 import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.util';
+import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-logo.component';
 
 @Component({
   selector: 'app-forgot-password',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, CommonModule],
+  imports: [ReactiveFormsModule, RouterLink, CommonModule, BrandLogoComponent],
   template: `
     <div class="auth-page">
       <div class="auth-background"></div>
       <div class="auth-container">
         <div class="card auth-card">
           <div class="auth-header">
-            <div class="auth-logo">🔐</div>
+            <app-brand-logo variant="auth" />
             <h1>Reset password</h1>
             <p>{{ step() === 1 ? 'Enter your email to receive an OTP on your registered mobile' : 'Enter OTP and choose a new password' }}</p>
           </div>
@@ -94,7 +95,6 @@ import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.
     .auth-card { padding: 3rem; border: 2px solid var(--border); box-shadow: var(--shadow-2xl); }
     .auth-inline-error { margin: 0 0 1.25rem; padding: 0.75rem 1rem; border-radius: var(--radius); background: var(--danger-bg); color: var(--danger-text-strong); font-size: 0.9375rem; font-weight: 600; border: 1px solid rgba(239, 68, 68, 0.35); }
     .auth-header { text-align: center; margin-bottom: 2rem; }
-    .auth-logo { font-size: 3rem; margin-bottom: 0.75rem; }
     .auth-header h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text); }
     .auth-header p { color: var(--text-muted); font-size: 0.9375rem; margin: 0; }
     .auth-footer { text-align: center; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-light); }

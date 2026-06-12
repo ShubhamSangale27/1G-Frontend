@@ -1,19 +1,19 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
 
 @Component({
   selector: 'app-footer',
   standalone: true,
-  imports: [RouterLink, CommonModule],
+  imports: [RouterLink, CommonModule, BrandLogoComponent],
   template: `
     <footer class="footer">
       <div class="container">
         <div class="footer-grid">
           <div class="footer-col">
             <div class="footer-logo">
-              <span class="logo-icon">🏠</span>
-              <strong>1Guntha</strong>
+              <app-brand-logo variant="footer" />
             </div>
             <p>Your trusted partner for buying, selling, and renting properties in India. Find your dream home today.</p>
             <div class="social-links">
@@ -92,14 +92,8 @@ import { CommonModule } from '@angular/common';
     }
     .footer-logo {
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
+      align-items: flex-start;
       margin-bottom: 1rem;
-      color: var(--footer-text);
-      font-size: 1.25rem;
-    }
-    .logo-icon {
-      font-size: 1.5rem;
     }
     .footer-col p {
       font-size: 0.875rem;

@@ -5,18 +5,19 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService, SignupResponse } from '../../../core/services/auth.service';
 import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.util';
+import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-logo.component';
 
 @Component({
   selector: 'app-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent],
   template: `
     <div class="auth-page">
       <div class="auth-background"></div>
       <div class="auth-container">
         <div class="card auth-card">
           <div class="auth-header">
-            <div class="auth-logo">🏠</div>
+            <app-brand-logo variant="auth" />
             <h1>Create Account</h1>
             <p>Join thousands of property owners and buyers on 1Guntha</p>
           </div>
@@ -104,11 +105,6 @@ import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.
     .auth-header {
       text-align: center;
       margin-bottom: 2.5rem;
-    }
-    .auth-logo {
-      font-size: 3.5rem;
-      margin-bottom: 1rem;
-      filter: drop-shadow(0 4px 8px rgba(14, 165, 233, 0.2));
     }
     .auth-header h1 {
       font-size: 2rem;

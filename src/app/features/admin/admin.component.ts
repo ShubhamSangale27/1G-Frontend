@@ -61,6 +61,29 @@ interface UnmatchedFaqRow {
   createdAt: string;
 }
 
+interface MarketAreaAdminRow {
+  id: number;
+  parentId?: number | null;
+  level: string;
+  name: string;
+  stateName?: string;
+  cityName?: string;
+  active: boolean;
+  sortOrder: number;
+}
+
+interface MarketSnapshotAdminRow {
+  id: number;
+  marketAreaId: number;
+  snapshotDate: string;
+  granularity: string;
+  priceIndex: number;
+  avgPricePerSqft?: number | null;
+  yoyGrowthPct?: number | null;
+  rentalYieldPct?: number | null;
+  sourceType: string;
+}
+
 @Component({
   selector: 'app-admin',
   standalone: true,
@@ -576,6 +599,168 @@ interface UnmatchedFaqRow {
           </div>
         </div>
 
+        <div class="pending-section card market-stats-section">
+          <div class="section-header">
+            <h2>Market Statistics</h2>
+            <div class="header-actions">
+              <button type="button" class="btn btn-outline" (click)="importRbiSeed()" [disabled]="importingMarketSeed">
+                {{ importingMarketSeed ? 'Importing…' : 'Import open/RBI seed' }}
+              </button>
+              <button type="button" class="btn btn-primary" (click)="openAreaForm()">+ Add Area</button>
+            </div>
+          </div>
+          <div class="visits-table-wrap" *ngIf="marketAreas.length && !loadingMarketAreas">
+            <table class="visits-table">
+              <thead>
+                <tr>
+                  <th>Level</th>
+                  <th>Name</th>
+                  <th>State</th>
+                  <th>City</th>
+                  <th>Active</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let a of marketAreas" [class.row-selected]="selectedMarketAreaId === a.id">
+                  <td>{{ a.level }}</td>
+                  <td>{{ a.name }}</td>
+                  <td>{{ a.stateName || '—' }}</td>
+                  <td>{{ a.cityName || '—' }}</td>
+                  <td>{{ a.active ? 'Yes' : 'No' }}</td>
+                  <td>
+                    <button type="button" class="btn btn-outline btn-sm" (click)="selectMarketArea(a)">Snapshots</button>
+                    <button type="button" class="btn btn-outline btn-sm" (click)="openAreaForm(a)">Edit</button>
+                    <button type="button" class="btn btn-outline btn-sm btn-danger" (click)="deleteMarketArea(a.id)" [disabled]="deletingMarketArea[a.id]">Delete</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="!marketAreas.length && !loadingMarketAreas">
+            <p>No market areas yet. Import the open/RBI seed or add State → City → Locality manually.</p>
+          </div>
+          <div class="loading-state" *ngIf="loadingMarketAreas"><p>Loading market areas...</p></div>
+
+          <div class="snapshot-panel" *ngIf="selectedMarketAreaId">
+            <div class="section-header">
+              <h3>Snapshots for area #{{ selectedMarketAreaId }}</h3>
+              <button type="button" class="btn btn-primary btn-sm" (click)="openSnapshotForm()">+ Add Snapshot</button>
+            </div>
+            <div class="visits-table-wrap" *ngIf="marketSnapshots.length && !loadingMarketSnapshots">
+              <table class="visits-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Index</th>
+                    <th>₹/sqft</th>
+                    <th>YoY %</th>
+                    <th>Source</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let s of marketSnapshots">
+                    <td>{{ s.snapshotDate }}</td>
+                    <td>{{ s.priceIndex }}</td>
+                    <td>{{ s.avgPricePerSqft ?? '—' }}</td>
+                    <td>{{ s.yoyGrowthPct ?? '—' }}</td>
+                    <td>{{ s.sourceType }}</td>
+                    <td>
+                      <button type="button" class="btn btn-outline btn-sm" (click)="openSnapshotForm(s)">Edit</button>
+                      <button type="button" class="btn btn-outline btn-sm btn-danger" (click)="deleteMarketSnapshot(s.id)" [disabled]="deletingMarketSnapshot[s.id]">Delete</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="empty-state" *ngIf="!marketSnapshots.length && !loadingMarketSnapshots">
+              <p>No snapshots for this area.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-overlay" *ngIf="areaFormOpen" (click)="closeAreaForm()">
+          <div class="modal-content faq-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h3>{{ editingAreaId ? 'Edit Area' : 'Add Area' }}</h3>
+              <button type="button" class="modal-close" (click)="closeAreaForm()">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Level</label>
+                <select class="form-select" [(ngModel)]="areaForm.level" name="areaLevel">
+                  <option value="STATE">STATE</option>
+                  <option value="CITY">CITY</option>
+                  <option value="LOCALITY">LOCALITY</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Name</label>
+                <input type="text" class="form-input" [(ngModel)]="areaForm.name" name="areaName" />
+              </div>
+              <div class="form-group">
+                <label>Parent ID (required for CITY/LOCALITY)</label>
+                <input type="number" class="form-input" [(ngModel)]="areaForm.parentId" name="areaParentId" />
+              </div>
+              <div class="form-group">
+                <label>State name (optional override)</label>
+                <input type="text" class="form-input" [(ngModel)]="areaForm.stateName" name="areaStateName" />
+              </div>
+              <div class="form-group">
+                <label>City name (optional override)</label>
+                <input type="text" class="form-input" [(ngModel)]="areaForm.cityName" name="areaCityName" />
+              </div>
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="areaForm.active" name="areaActive" /> Active
+              </label>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-outline" (click)="closeAreaForm()">Cancel</button>
+                <button type="button" class="btn btn-primary" (click)="saveArea()" [disabled]="savingArea">
+                  {{ savingArea ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-overlay" *ngIf="snapshotFormOpen" (click)="closeSnapshotForm()">
+          <div class="modal-content faq-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h3>{{ editingSnapshotId ? 'Edit Snapshot' : 'Add Snapshot' }}</h3>
+              <button type="button" class="modal-close" (click)="closeSnapshotForm()">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Date</label>
+                <input type="date" class="form-input" [(ngModel)]="snapshotForm.snapshotDate" name="snapDate" />
+              </div>
+              <div class="form-group">
+                <label>Price index</label>
+                <input type="number" class="form-input" [(ngModel)]="snapshotForm.priceIndex" name="snapIndex" step="0.01" />
+              </div>
+              <div class="form-group">
+                <label>Avg price / sqft</label>
+                <input type="number" class="form-input" [(ngModel)]="snapshotForm.avgPricePerSqft" name="snapPsf" step="0.01" />
+              </div>
+              <div class="form-group">
+                <label>YoY growth %</label>
+                <input type="number" class="form-input" [(ngModel)]="snapshotForm.yoyGrowthPct" name="snapYoy" step="0.01" />
+              </div>
+              <div class="form-group">
+                <label>Rental yield %</label>
+                <input type="number" class="form-input" [(ngModel)]="snapshotForm.rentalYieldPct" name="snapYield" step="0.01" />
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-outline" (click)="closeSnapshotForm()">Cancel</button>
+                <button type="button" class="btn btn-primary" (click)="saveSnapshot()" [disabled]="savingSnapshot">
+                  {{ savingSnapshot ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="modal-overlay" *ngIf="faqFormOpen" (click)="closeFaqForm()">
           <div class="modal-content faq-modal" (click)="$event.stopPropagation()">
             <div class="modal-header">
@@ -1053,8 +1238,21 @@ interface UnmatchedFaqRow {
       color: var(--text-muted);
     }
     .faq-section,
-    .unmatched-faq-section {
+    .unmatched-faq-section,
+    .market-stats-section {
       margin-top: 2rem;
+    }
+    .row-selected {
+      background: rgba(14, 165, 233, 0.08);
+    }
+    .snapshot-panel {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-light);
+    }
+    .snapshot-panel h3 {
+      margin: 0;
+      font-size: 1.1rem;
     }
     .faq-modal.modal-content {
       max-width: 560px;
@@ -1169,6 +1367,36 @@ export class AdminComponent implements OnInit {
   promoteTargetId: number | null = null;
   promoteForm = { question: '', answer: '', keywords: '' };
 
+  marketAreas: MarketAreaAdminRow[] = [];
+  loadingMarketAreas = false;
+  importingMarketSeed = false;
+  areaFormOpen = false;
+  editingAreaId: number | null = null;
+  savingArea = false;
+  deletingMarketArea: Record<number, boolean> = {};
+  areaForm: {
+    level: string;
+    name: string;
+    parentId: number | null;
+    stateName: string;
+    cityName: string;
+    active: boolean;
+  } = { level: 'LOCALITY', name: '', parentId: null, stateName: '', cityName: '', active: true };
+  selectedMarketAreaId: number | null = null;
+  marketSnapshots: MarketSnapshotAdminRow[] = [];
+  loadingMarketSnapshots = false;
+  snapshotFormOpen = false;
+  editingSnapshotId: number | null = null;
+  savingSnapshot = false;
+  deletingMarketSnapshot: Record<number, boolean> = {};
+  snapshotForm: {
+    snapshotDate: string;
+    priceIndex: number | null;
+    avgPricePerSqft: number | null;
+    yoyGrowthPct: number | null;
+    rentalYieldPct: number | null;
+  } = { snapshotDate: '', priceIndex: null, avgPricePerSqft: null, yoyGrowthPct: null, rentalYieldPct: null };
+
   constructor(
     private api: ApiService,
     private config: ConfigService,
@@ -1212,6 +1440,7 @@ export class AdminComponent implements OnInit {
     this.loadCarouselSlides();
     this.loadFaqs();
     this.loadUnmatchedFaqs();
+    this.loadMarketAreas();
   }
 
   isNewProperty(createdAt: string | undefined): boolean {
@@ -1860,6 +2089,230 @@ export class AdminComponent implements OnInit {
       next: (m) => {
         this.metrics = m as typeof this.metrics;
         this.cdr.markForCheck();
+      },
+    });
+  }
+
+  loadMarketAreas() {
+    this.loadingMarketAreas = true;
+    this.api.get<MarketAreaAdminRow[]>('/admin/market-stats/areas').subscribe({
+      next: (list) => {
+        this.ngZone.run(() => {
+          this.marketAreas = Array.isArray(list) ? list : [];
+          this.loadingMarketAreas = false;
+          this.cdr.detectChanges();
+        });
+      },
+      error: () => {
+        this.ngZone.run(() => {
+          this.loadingMarketAreas = false;
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  importRbiSeed() {
+    this.importingMarketSeed = true;
+    this.api.post<{ upserted: number }>('/admin/market-stats/import/rbi', {}).subscribe({
+      next: (res) => {
+        this.ngZone.run(() => {
+          this.importingMarketSeed = false;
+          this.toast.success(`Imported ${res?.upserted ?? 0} snapshot records`);
+          this.loadMarketAreas();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.importingMarketSeed = false;
+          this.toast.error(e.error?.message || 'Import failed');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  openAreaForm(a?: MarketAreaAdminRow) {
+    this.editingAreaId = a?.id ?? null;
+    this.areaForm = {
+      level: a?.level || 'LOCALITY',
+      name: a?.name || '',
+      parentId: a?.parentId ?? null,
+      stateName: a?.stateName || '',
+      cityName: a?.cityName || '',
+      active: a?.active ?? true,
+    };
+    this.areaFormOpen = true;
+  }
+
+  closeAreaForm() {
+    this.areaFormOpen = false;
+    this.editingAreaId = null;
+  }
+
+  saveArea() {
+    if (!this.areaForm.name.trim()) {
+      this.toast.error('Name is required');
+      return;
+    }
+    this.savingArea = true;
+    const body = {
+      level: this.areaForm.level,
+      name: this.areaForm.name.trim(),
+      parentId: this.areaForm.parentId,
+      stateName: this.areaForm.stateName || null,
+      cityName: this.areaForm.cityName || null,
+      active: this.areaForm.active,
+    };
+    const req = this.editingAreaId
+      ? this.api.put<MarketAreaAdminRow>('/admin/market-stats/areas/' + this.editingAreaId, body)
+      : this.api.post<MarketAreaAdminRow>('/admin/market-stats/areas', body);
+    req.subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.savingArea = false;
+          this.closeAreaForm();
+          this.toast.success('Area saved');
+          this.loadMarketAreas();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.savingArea = false;
+          this.toast.error(e.error?.message || 'Failed to save area');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  deleteMarketArea(id: number) {
+    if (!confirm('Delete this market area and its snapshots?')) return;
+    this.deletingMarketArea[id] = true;
+    this.api.delete('/admin/market-stats/areas/' + id).subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.deletingMarketArea[id] = false;
+          if (this.selectedMarketAreaId === id) {
+            this.selectedMarketAreaId = null;
+            this.marketSnapshots = [];
+          }
+          this.toast.success('Area deleted');
+          this.loadMarketAreas();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.deletingMarketArea[id] = false;
+          this.toast.error(e.error?.message || 'Failed to delete');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  selectMarketArea(a: MarketAreaAdminRow) {
+    this.selectedMarketAreaId = a.id;
+    this.loadMarketSnapshots();
+  }
+
+  loadMarketSnapshots() {
+    if (!this.selectedMarketAreaId) return;
+    this.loadingMarketSnapshots = true;
+    this.api.get<MarketSnapshotAdminRow[]>('/admin/market-stats/snapshots', { areaId: this.selectedMarketAreaId }).subscribe({
+      next: (list) => {
+        this.ngZone.run(() => {
+          this.marketSnapshots = Array.isArray(list) ? list : [];
+          this.loadingMarketSnapshots = false;
+          this.cdr.detectChanges();
+        });
+      },
+      error: () => {
+        this.ngZone.run(() => {
+          this.loadingMarketSnapshots = false;
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  openSnapshotForm(s?: MarketSnapshotAdminRow) {
+    this.editingSnapshotId = s?.id ?? null;
+    this.snapshotForm = {
+      snapshotDate: s?.snapshotDate || new Date().toISOString().slice(0, 10),
+      priceIndex: s?.priceIndex ?? 100,
+      avgPricePerSqft: s?.avgPricePerSqft ?? null,
+      yoyGrowthPct: s?.yoyGrowthPct ?? null,
+      rentalYieldPct: s?.rentalYieldPct ?? null,
+    };
+    this.snapshotFormOpen = true;
+  }
+
+  closeSnapshotForm() {
+    this.snapshotFormOpen = false;
+    this.editingSnapshotId = null;
+  }
+
+  saveSnapshot() {
+    if (!this.selectedMarketAreaId || this.snapshotForm.priceIndex == null || !this.snapshotForm.snapshotDate) {
+      this.toast.error('Date and price index are required');
+      return;
+    }
+    this.savingSnapshot = true;
+    const body = {
+      marketAreaId: this.selectedMarketAreaId,
+      snapshotDate: this.snapshotForm.snapshotDate,
+      granularity: 'QUARTERLY',
+      priceIndex: this.snapshotForm.priceIndex,
+      avgPricePerSqft: this.snapshotForm.avgPricePerSqft,
+      yoyGrowthPct: this.snapshotForm.yoyGrowthPct,
+      rentalYieldPct: this.snapshotForm.rentalYieldPct,
+      sourceType: 'ADMIN',
+    };
+    const req = this.editingSnapshotId
+      ? this.api.put('/admin/market-stats/snapshots/' + this.editingSnapshotId, body)
+      : this.api.post('/admin/market-stats/snapshots', body);
+    req.subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.savingSnapshot = false;
+          this.closeSnapshotForm();
+          this.toast.success('Snapshot saved');
+          this.loadMarketSnapshots();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.savingSnapshot = false;
+          this.toast.error(e.error?.message || 'Failed to save snapshot');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  deleteMarketSnapshot(id: number) {
+    if (!confirm('Delete this snapshot?')) return;
+    this.deletingMarketSnapshot[id] = true;
+    this.api.delete('/admin/market-stats/snapshots/' + id).subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.deletingMarketSnapshot[id] = false;
+          this.toast.success('Snapshot deleted');
+          this.loadMarketSnapshots();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.deletingMarketSnapshot[id] = false;
+          this.toast.error(e.error?.message || 'Failed to delete');
+          this.cdr.detectChanges();
+        });
       },
     });
   }

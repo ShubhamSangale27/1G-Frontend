@@ -1,10 +1,15 @@
 import { Component, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { ConfigService } from '../../core/services/config.service';
+import { CarouselSlide } from '../../core/models/carousel.model';
 import { Property, PageResponse } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
+import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
+import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 
 interface SiteVisitRow {
   id: number;
@@ -33,12 +38,33 @@ interface UserRow {
   fullName: string;
   mobile: string;
   role: string;
+  active?: boolean;
+}
+
+interface FaqAdminRow {
+  id: number;
+  question: string;
+  answer: string;
+  keywords?: string;
+  active: boolean;
+  sortOrder: number;
+}
+
+interface UnmatchedFaqRow {
+  id: number;
+  questionText: string;
+  userId?: number;
+  userFullName?: string;
+  userEmail?: string;
+  status: string;
+  promotedFaqId?: number;
+  createdAt: string;
 }
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, IndianPricePipe],
   template: `
     <div class="admin-page">
       <div class="container">
@@ -85,6 +111,88 @@ interface UserRow {
               <div class="metric-label">Revenue (30d)</div>
             </div>
           </div>
+          <div class="metric-card card">
+            <div class="metric-icon">❓</div>
+            <div class="metric-content">
+              <div class="metric-value">{{ metrics.unmatchedFaqPending ?? 0 }}</div>
+              <div class="metric-label">Unmatched FAQs</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pending-section card carousel-section">
+          <div class="section-header">
+            <h2>Homepage Carousel</h2>
+            <span class="badge badge-info">{{ carouselSlides.length }} Slides</span>
+          </div>
+          <p class="carousel-hint">Paste a public image URL or Google Drive image link. For Google Drive, set sharing to &quot;Anyone with the link&quot;. Images load directly from the URL — no file uploads. Any image size will auto-fit the carousel.</p>
+
+          <div class="carousel-add-form">
+            <div class="carousel-form-row">
+              <div class="form-group">
+                <label>Image URL *</label>
+                <input type="text" class="form-input" [(ngModel)]="newCarousel.imageUrl" placeholder="https://… or Google Drive link" />
+              </div>
+              <div class="form-group">
+                <label>Link URL (optional)</label>
+                <input type="text" class="form-input" [(ngModel)]="newCarousel.linkUrl" placeholder="https://…" />
+              </div>
+              <div class="form-group">
+                <label>Alt text</label>
+                <input type="text" class="form-input" [(ngModel)]="newCarousel.altText" placeholder="Banner description" />
+              </div>
+              <button type="button" class="btn btn-primary" (click)="addCarouselSlide()" [disabled]="savingCarousel">
+                {{ savingCarousel ? 'Adding…' : 'Add slide' }}
+              </button>
+            </div>
+            <div class="carousel-live-preview" *ngIf="newCarouselPreviewUrl()">
+              <span class="preview-label">Preview</span>
+              <img [src]="newCarouselPreviewUrl()" alt="New slide preview" class="carousel-preview-img" (error)="onCarouselImageError($event)" />
+            </div>
+          </div>
+
+          <div class="loading-state" *ngIf="loadingCarousel">
+            <p>Loading carousel slides…</p>
+          </div>
+
+          <div class="carousel-list" *ngIf="!loadingCarousel && carouselSlides.length">
+            <div class="carousel-item" *ngFor="let slide of carouselSlides; let i = index">
+              <img [src]="carouselImageUrl(slide.imageUrl)" [alt]="slide.altText || 'Carousel slide'" class="carousel-thumb" (error)="onCarouselImageError($event)" />
+              <div class="carousel-item-fields">
+                <div class="form-group">
+                  <label>Image URL</label>
+                  <input type="text" class="form-input sm" [(ngModel)]="slide.imageUrl" />
+                </div>
+                <div class="form-group">
+                  <label>Link URL</label>
+                  <input type="text" class="form-input sm" [(ngModel)]="slide.linkUrl" />
+                </div>
+                <div class="form-group">
+                  <label>Alt text</label>
+                  <input type="text" class="form-input sm" [(ngModel)]="slide.altText" />
+                </div>
+                <label class="active-toggle">
+                  <input type="checkbox" [(ngModel)]="slide.active" (change)="saveCarouselSlide(slide)" />
+                  Active on homepage
+                </label>
+              </div>
+              <div class="carousel-item-actions">
+                <button type="button" class="btn btn-outline btn-sm" (click)="moveCarouselSlide(i, -1)" [disabled]="i === 0 || reorderingCarousel[slide.id]">↑</button>
+                <button type="button" class="btn btn-outline btn-sm" (click)="moveCarouselSlide(i, 1)" [disabled]="i === carouselSlides.length - 1 || reorderingCarousel[slide.id]">↓</button>
+                <button type="button" class="btn btn-primary btn-sm" (click)="saveCarouselSlide(slide)" [disabled]="savingCarouselId[slide.id]">
+                  {{ savingCarouselId[slide.id] ? 'Saving…' : 'Save' }}
+                </button>
+                <button type="button" class="btn btn-outline btn-sm btn-danger" (click)="deleteCarouselSlide(slide)" [disabled]="deletingCarousel[slide.id]">
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="!loadingCarousel && !carouselSlides.length">
+            <div class="empty-icon">🖼</div>
+            <p>No carousel slides yet. Add an image URL above or the homepage will show default banners.</p>
+          </div>
         </div>
 
         <div class="pending-section card">
@@ -98,7 +206,7 @@ interface UserRow {
                 <div class="pending-title">{{ p.title }}</div>
                 <div class="pending-meta">
                   <span>Owner: {{ p.ownerName }}</span>
-                  <span>Price: ₹ {{ p.price | number }}</span>
+                  <span>Price: {{ p.price | indianPrice }}</span>
                   <span>Type: {{ p.propertyType }}</span>
                 </div>
               </div>
@@ -200,6 +308,69 @@ interface UserRow {
               </div>
               <p *ngIf="!loadingModalUsers && !modalError && !modalUsers.length" class="modal-status modal-empty">{{ modalEmptyMessage }}</p>
             </div>
+          </div>
+        </div>
+
+        <div class="pending-section card user-management-section">
+          <div class="section-header">
+            <h2>User Management</h2>
+            <span class="badge badge-info">{{ allUsers.length }} Users</span>
+          </div>
+          <div class="visits-table-wrap" *ngIf="allUsers.length && !loadingUsers">
+            <table class="visits-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let u of allUsers">
+                  <td>{{ u.fullName }}</td>
+                  <td>{{ u.email }}</td>
+                  <td>
+                    <div class="role-cell">
+                      <span class="status-badge" [class.status-assigned]="u.role === 'AGENT'" [class.status-completed]="u.role === 'ADMIN'">
+                        {{ u.role }}
+                      </span>
+                      <div class="role-actions">
+                        <select class="form-select sm" [ngModel]="u.role"
+                                (ngModelChange)="changeUserRole(u, $event)"
+                                [disabled]="changingUserRole[u.id] || u.id === currentUserId">
+                          <option value="USER">USER</option>
+                          <option value="BLOG">BLOG</option>
+                          <option value="ADMIN">ADMIN</option>
+                          <option value="AGENT">AGENT</option>
+                        </select>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="status-badge" [class.status-completed]="u.active" [class.status-rejected]="u.active === false">
+                      {{ u.active ? 'ACTIVE' : 'SUSPENDED' }}
+                    </span>
+                  </td>
+                  <td>
+                    <button type="button" class="btn btn-outline btn-sm"
+                            (click)="toggleUserStatus(u)"
+                            [disabled]="updatingUserStatus[u.id] || deletingUser[u.id] || u.id === currentUserId">
+                      {{ u.active ? 'Suspend' : 'Activate' }}
+                    </button>
+                    <button type="button" class="btn btn-outline btn-sm btn-danger"
+                            (click)="deleteUser(u)"
+                            [disabled]="deletingUser[u.id] || u.id === currentUserId">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="loading-state" *ngIf="loadingUsers">
+            <p>Loading users...</p>
           </div>
         </div>
 
@@ -305,6 +476,172 @@ interface UserRow {
             <button type="button" class="btn btn-outline btn-sm" [disabled]="pageAllVisits >= allVisitsResponse.totalPages - 1" (click)="nextVisitsPage()">Next →</button>
           </div>
         </div>
+
+        <div class="pending-section card faq-section">
+          <div class="section-header">
+            <h2>Manage FAQs</h2>
+            <button type="button" class="btn btn-primary" (click)="openFaqForm()">+ Add FAQ</button>
+          </div>
+          <div class="visits-table-wrap" *ngIf="faqs.length && !loadingFaqs">
+            <table class="visits-table">
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>Answer</th>
+                  <th>Keywords</th>
+                  <th>Active</th>
+                  <th>Sort</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let f of faqs">
+                  <td class="faq-cell">{{ f.question }}</td>
+                  <td class="faq-cell">{{ f.answer }}</td>
+                  <td>{{ f.keywords || '—' }}</td>
+                  <td>{{ f.active ? 'Yes' : 'No' }}</td>
+                  <td>{{ f.sortOrder }}</td>
+                  <td>
+                    <button type="button" class="btn btn-outline btn-sm" (click)="openFaqForm(f)">Edit</button>
+                    <button type="button" class="btn btn-outline btn-sm btn-danger" (click)="deleteFaq(f.id)" [disabled]="deletingFaq[f.id]">Delete</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="!faqs.length && !loadingFaqs">
+            <p>No FAQs yet. Add questions and answers for the chatbot.</p>
+          </div>
+          <div class="loading-state" *ngIf="loadingFaqs">
+            <p>Loading FAQs...</p>
+          </div>
+        </div>
+
+        <div class="pending-section card unmatched-faq-section">
+          <div class="section-header">
+            <h2>Out-of-scope Questions</h2>
+            <div class="header-actions">
+              <select class="form-select" [(ngModel)]="unmatchedStatusFilter" (ngModelChange)="loadUnmatchedFaqs()">
+                <option value="PENDING">Pending</option>
+                <option value="RESOLVED">Resolved</option>
+              </select>
+              <span class="badge badge-warning" *ngIf="unmatchedStatusFilter === 'PENDING'">{{ unmatchedFaqs.length }} Pending</span>
+            </div>
+          </div>
+          <div class="visits-table-wrap" *ngIf="unmatchedFaqs.length && !loadingUnmatched">
+            <table class="visits-table">
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>Asked by</th>
+                  <th>When</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let u of unmatchedFaqs">
+                  <td class="faq-cell">{{ u.questionText }}</td>
+                  <td>
+                    <div>{{ u.userFullName || 'Unknown' }}</div>
+                    <div class="muted-email" *ngIf="u.userEmail">{{ u.userEmail }}</div>
+                  </td>
+                  <td>{{ u.createdAt | date:'short' }}</td>
+                  <td><span class="status-badge" [class.status-pending]="u.status === 'PENDING'" [class.status-resolved]="u.status === 'RESOLVED'">{{ u.status }}</span></td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-outline btn-sm"
+                      *ngIf="u.status === 'PENDING'"
+                      (click)="resolveUnmatched(u.id)"
+                      [disabled]="resolvingUnmatched[u.id]"
+                    >{{ resolvingUnmatched[u.id] ? '...' : 'Resolve' }}</button>
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm"
+                      *ngIf="u.status === 'PENDING'"
+                      (click)="openPromoteModal(u)"
+                    >Promote to FAQ</button>
+                    <span *ngIf="u.status === 'RESOLVED' && u.promotedFaqId">Promoted #{{ u.promotedFaqId }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="!unmatchedFaqs.length && !loadingUnmatched">
+            <p>No {{ unmatchedStatusFilter === 'PENDING' ? 'pending' : 'resolved' }} out-of-scope questions.</p>
+          </div>
+          <div class="loading-state" *ngIf="loadingUnmatched">
+            <p>Loading questions...</p>
+          </div>
+        </div>
+
+        <div class="modal-overlay" *ngIf="faqFormOpen" (click)="closeFaqForm()">
+          <div class="modal-content faq-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h3>{{ editingFaqId ? 'Edit FAQ' : 'Add FAQ' }}</h3>
+              <button type="button" class="modal-close" (click)="closeFaqForm()">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Question</label>
+                <input type="text" class="form-input" [(ngModel)]="faqForm.question" name="faqQuestion" />
+              </div>
+              <div class="form-group">
+                <label>Answer</label>
+                <textarea class="form-input faq-textarea" rows="4" [(ngModel)]="faqForm.answer" name="faqAnswer"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Keywords (comma-separated, optional)</label>
+                <input type="text" class="form-input" [(ngModel)]="faqForm.keywords" name="faqKeywords" placeholder="e.g. rent, deposit, visit" />
+              </div>
+              <div class="form-row">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="faqForm.active" name="faqActive" /> Active
+                </label>
+                <div class="form-group sort-group">
+                  <label>Sort order</label>
+                  <input type="number" class="form-input" [(ngModel)]="faqForm.sortOrder" name="faqSortOrder" />
+                </div>
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-outline" (click)="closeFaqForm()">Cancel</button>
+                <button type="button" class="btn btn-primary" (click)="saveFaq()" [disabled]="savingFaq">
+                  {{ savingFaq ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-overlay" *ngIf="promoteModalOpen" (click)="closePromoteModal()">
+          <div class="modal-content faq-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h3>Promote to FAQ</h3>
+              <button type="button" class="modal-close" (click)="closePromoteModal()">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Question</label>
+                <input type="text" class="form-input" name="promoteQuestion" [(ngModel)]="promoteForm.question" readonly />
+              </div>
+              <div class="form-group">
+                <label>Answer</label>
+                <textarea class="form-input faq-textarea" rows="4" [(ngModel)]="promoteForm.answer" name="promoteAnswer" placeholder="Write the answer for this FAQ"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Keywords (optional)</label>
+                <input type="text" class="form-input" [(ngModel)]="promoteForm.keywords" name="promoteKeywords" />
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-outline" (click)="closePromoteModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" (click)="promoteUnmatched()" [disabled]="promoting || !promoteForm.answer.trim()">
+                  {{ promoting ? 'Promoting...' : 'Create FAQ' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `,
@@ -398,6 +735,105 @@ interface UserRow {
     .pending-section {
       padding: 2.5rem;
       border: 2px solid var(--border);
+    }
+    .carousel-hint {
+      margin: 0 0 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    .carousel-add-form {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .carousel-form-row {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr 1fr auto;
+      gap: 0.75rem;
+      align-items: end;
+    }
+    .carousel-live-preview {
+      margin-top: 1rem;
+    }
+    .preview-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .carousel-preview-img {
+      width: 100%;
+      max-height: 140px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--border);
+    }
+    .carousel-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .carousel-item {
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      gap: 1rem;
+      align-items: start;
+      padding: 1rem;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .carousel-thumb {
+      width: 140px;
+      height: 70px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .carousel-item-fields {
+      display: grid;
+      gap: 0.5rem;
+    }
+    .carousel-item-fields .form-group {
+      margin: 0;
+    }
+    .carousel-item-fields label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .active-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+    }
+    .carousel-item-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-width: 5.5rem;
+    }
+    @media (max-width: 900px) {
+      .carousel-form-row {
+        grid-template-columns: 1fr;
+      }
+      .carousel-item {
+        grid-template-columns: 1fr;
+      }
+      .carousel-thumb {
+        width: 100%;
+        height: 120px;
+      }
+      .carousel-item-actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
     }
     .section-header {
       display: flex;
@@ -538,7 +974,7 @@ interface UserRow {
       border-bottom: 1px solid var(--border);
     }
     .visits-table th { font-weight: 700; color: var(--text-muted); }
-    .visits-table tr.due-today { background: rgba(37, 99, 235, 0.08); }
+    .visits-table tr.due-today { background: rgba(14, 165, 233, 0.08); }
     .status-badge {
       padding: 0.25rem 0.5rem;
       border-radius: 9999px;
@@ -546,24 +982,39 @@ interface UserRow {
       font-weight: 600;
       text-transform: capitalize;
     }
-    .status-pending_assignment { background: #fef3c7; color: #92400e; }
-    .status-assigned { background: #dbeafe; color: #1e40af; }
-    .status-completed { background: #d1fae5; color: #065f46; }
-    .status-cancelled { background: #f3f4f6; color: #6b7280; }
+    /** Property rows use .replace('_','') once → e.g. PENDING_APPROVAL → pendingapproval */
+    .status-pendingapproval,
+    .status-pending_assignment { background: var(--status-pending-bg); color: var(--status-pending-text); }
+    .status-approved { background: var(--success-bg); color: var(--success-text); }
+    .status-assigned { background: var(--info-bg); color: var(--info-text); }
+    .status-completed { background: var(--success-bg); color: var(--success-text); }
+    .status-cancelled { background: var(--status-neutral-bg); color: var(--status-neutral-text); }
+    .status-rejected { background: var(--danger-bg); color: var(--danger-text-strong); }
     .form-select.sm { min-width: 140px; }
+    .role-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .role-actions .form-select {
+      min-width: 110px;
+      min-height: 2.1rem;
+      padding: 0.25rem 0.5rem;
+    }
     .pagination-row {
       display: flex;
       align-items: center;
       gap: 1rem;
       margin-top: 1rem;
     }
-    .badge-info { background: #dbeafe; color: #1e40af; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; }
+    .badge-info { background: var(--info-bg); color: var(--info-text); padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; }
     .all-properties-section { margin-top: 2rem; }
     .header-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    .badge-new { background: #d1fae5; color: #065f46; padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; }
+    .badge-new { background: var(--success-bg); color: var(--success-text); padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; }
     .new-row { background: rgba(16, 185, 129, 0.06); }
     .btn-danger { color: var(--danger, #dc2626); border-color: var(--danger, #dc2626); }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; }
     .modal-content { background: var(--surface); border-radius: var(--radius-lg); max-width: 480px; width: 100%; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-2xl); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
     .modal-header h3 { margin: 0; font-size: 1.25rem; }
@@ -591,10 +1042,71 @@ interface UserRow {
     @media (max-width: 480px) {
       .metrics-grid { grid-template-columns: 1fr; }
     }
+    .faq-cell {
+      max-width: 240px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .muted-email {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+    .faq-section,
+    .unmatched-faq-section {
+      margin-top: 2rem;
+    }
+    .faq-modal.modal-content {
+      max-width: 560px;
+    }
+    .faq-modal .form-group { margin-bottom: 1rem; }
+    .faq-modal label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      font-size: 0.875rem;
+      color: var(--text);
+    }
+    .faq-modal .form-input {
+      width: 100%;
+      background: var(--surface);
+    }
+    .faq-textarea {
+      resize: vertical;
+      min-height: 110px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      line-height: 1.45;
+    }
+    .faq-modal .form-row {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .sort-group { margin-bottom: 0; flex: 1; min-width: 120px; }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-light, var(--border));
+    }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-resolved { background: #d1fae5; color: #065f46; }
   `],
 })
 export class AdminComponent implements OnInit {
-  metrics: { totalProperties?: number; totalViews?: number; pendingProperties?: number; pendingSiteVisits?: number; revenueLast30Days?: number } | null = null;
+  metrics: { totalProperties?: number; totalViews?: number; pendingProperties?: number; pendingSiteVisits?: number; revenueLast30Days?: number; unmatchedFaqPending?: number } | null = null;
   pending: Property[] = [];
   pendingVisits: SiteVisitRow[] = [];
   agents: AgentRow[] = [];
@@ -621,10 +1133,60 @@ export class AdminComponent implements OnInit {
   loadingModalUsers = false;
   modalError = '';
   modalEmptyMessage = '';
+  allUsers: UserRow[] = [];
+  loadingUsers = false;
+  updatingUserStatus: Record<number, boolean> = {};
+  deletingUser: Record<number, boolean> = {};
+  changingUserRole: Record<number, boolean> = {};
+  currentUserId: number | null = null;
+  carouselSlides: CarouselSlide[] = [];
+  loadingCarousel = false;
+  savingCarousel = false;
+  savingCarouselId: Record<number, boolean> = {};
+  deletingCarousel: Record<number, boolean> = {};
+  reorderingCarousel: Record<number, boolean> = {};
+  newCarousel = { imageUrl: '', linkUrl: '', altText: '' };
 
-  constructor(private api: ApiService, private toast: ToastrService, private cdr: ChangeDetectorRef, private ngZone: NgZone) {}
+  faqs: FaqAdminRow[] = [];
+  loadingFaqs = false;
+  faqFormOpen = false;
+  editingFaqId: number | null = null;
+  savingFaq = false;
+  deletingFaq: Record<number, boolean> = {};
+  faqForm: { question: string; answer: string; keywords: string; active: boolean; sortOrder: number } = {
+    question: '',
+    answer: '',
+    keywords: '',
+    active: true,
+    sortOrder: 0,
+  };
+  unmatchedFaqs: UnmatchedFaqRow[] = [];
+  loadingUnmatched = false;
+  unmatchedStatusFilter: 'PENDING' | 'RESOLVED' = 'PENDING';
+  resolvingUnmatched: Record<number, boolean> = {};
+  promoteModalOpen = false;
+  promoting = false;
+  promoteTargetId: number | null = null;
+  promoteForm = { question: '', answer: '', keywords: '' };
+
+  constructor(
+    private api: ApiService,
+    private config: ConfigService,
+    private toast: ToastrService,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) {}
 
   ngOnInit() {
+    const userRaw = localStorage.getItem('user');
+    if (userRaw) {
+      try {
+        const parsed = JSON.parse(userRaw);
+        this.currentUserId = parsed?.id ?? null;
+      } catch {
+        this.currentUserId = null;
+      }
+    }
     this.api.get<Record<string, number>>('/admin/metrics').subscribe({
       next: (m) => {
         this.metrics = m as typeof this.metrics;
@@ -646,6 +1208,10 @@ export class AdminComponent implements OnInit {
     this.loadPendingVisits();
     this.loadAllVisits();
     this.loadAllProperties();
+    this.loadAllUsers();
+    this.loadCarouselSlides();
+    this.loadFaqs();
+    this.loadUnmatchedFaqs();
   }
 
   isNewProperty(createdAt: string | undefined): boolean {
@@ -798,6 +1364,70 @@ export class AdminComponent implements OnInit {
     this.modalEmptyMessage = '';
   }
 
+  loadAllUsers() {
+    this.loadingUsers = true;
+    this.api.get<UserRow[]>('/admin/users').subscribe({
+      next: (users) => {
+        this.allUsers = users || [];
+        this.loadingUsers = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingUsers = false;
+        this.toast.error('Failed to load users');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  toggleUserStatus(user: UserRow) {
+    const nextActive = !user.active;
+    this.updatingUserStatus[user.id] = true;
+    this.api.put<UserRow>('/admin/users/' + user.id + '/status?active=' + nextActive, {}).subscribe({
+      next: (updated) => {
+        this.updatingUserStatus[user.id] = false;
+        user.active = updated.active;
+        this.toast.success(updated.active ? 'User activated' : 'User suspended');
+      },
+      error: (e) => {
+        this.updatingUserStatus[user.id] = false;
+        this.toast.error(e.error?.message || 'Failed to update status');
+      },
+    });
+  }
+
+  changeUserRole(user: UserRow, nextRole: string) {
+    if (!nextRole || nextRole === user.role || user.id === this.currentUserId) return;
+    this.changingUserRole[user.id] = true;
+    this.api.put<UserRow>('/admin/users/' + user.id + '/role?role=' + nextRole, {}).subscribe({
+      next: (updated) => {
+        this.changingUserRole[user.id] = false;
+        user.role = updated.role;
+        this.toast.success('User role updated');
+      },
+      error: (e) => {
+        this.changingUserRole[user.id] = false;
+        this.toast.error(e.error?.message || 'Failed to update role');
+      },
+    });
+  }
+
+  deleteUser(user: UserRow) {
+    if (!confirm(`Delete user ${user.fullName}? This also deletes properties and related data.`)) return;
+    this.deletingUser[user.id] = true;
+    this.api.delete('/admin/users/' + user.id).subscribe({
+      next: () => {
+        this.deletingUser[user.id] = false;
+        this.allUsers = this.allUsers.filter(u => u.id !== user.id);
+        this.toast.success('User deleted');
+      },
+      error: (e) => {
+        this.deletingUser[user.id] = false;
+        this.toast.error(e.error?.message || 'Failed to delete user');
+      },
+    });
+  }
+
   loadAllVisits() {
     this.loadingAllVisits = true;
     const params: Record<string, string | number> = { page: this.pageAllVisits, size: 20 };
@@ -904,6 +1534,333 @@ export class AdminComponent implements OnInit {
         this.pending = this.pending.filter((p) => p.id !== id);
       },
       error: (e) => this.toast.error(e.error?.message || 'Failed'),
+    });
+  }
+
+  loadCarouselSlides() {
+    this.loadingCarousel = true;
+    this.api.get<CarouselSlide[]>('/admin/carousel/slides').subscribe({
+      next: (slides) => {
+        this.carouselSlides = Array.isArray(slides) ? slides : [];
+        this.loadingCarousel = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingCarousel = false;
+        this.toast.error('Failed to load carousel slides');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  carouselImageUrl(url: string): string {
+    return resolvePropertyImageUrl(url, this.config.apiUrl) || url;
+  }
+
+  newCarouselPreviewUrl(): string {
+    const raw = (this.newCarousel.imageUrl || '').trim();
+    if (!raw) return '';
+    return this.carouselImageUrl(raw.startsWith('http') ? raw : `https://${raw.replace(/^\/+/, '')}`);
+  }
+
+  onCarouselImageError(event: Event) {
+    const img = event.target as HTMLImageElement;
+    img.src = 'https://placehold.co/280x140?text=Preview+unavailable';
+    img.onerror = null;
+  }
+
+  addCarouselSlide() {
+    const imageUrl = (this.newCarousel.imageUrl || '').trim();
+    if (!imageUrl) {
+      this.toast.warning('Image URL is required');
+      return;
+    }
+    this.savingCarousel = true;
+    this.api.post<CarouselSlide>('/admin/carousel/slides', {
+      imageUrl,
+      linkUrl: (this.newCarousel.linkUrl || '').trim() || undefined,
+      altText: (this.newCarousel.altText || '').trim() || undefined,
+      active: true,
+    }).subscribe({
+      next: () => {
+        this.savingCarousel = false;
+        this.newCarousel = { imageUrl: '', linkUrl: '', altText: '' };
+        this.toast.success('Carousel slide added');
+        this.loadCarouselSlides();
+      },
+      error: (e) => {
+        this.savingCarousel = false;
+        this.toast.error(e.error?.message || 'Failed to add slide');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  saveCarouselSlide(slide: CarouselSlide) {
+    this.savingCarouselId[slide.id] = true;
+    this.api.put<CarouselSlide>('/admin/carousel/slides/' + slide.id, {
+      imageUrl: (slide.imageUrl || '').trim(),
+      linkUrl: (slide.linkUrl || '').trim() || null,
+      altText: (slide.altText || '').trim() || null,
+      displayOrder: slide.displayOrder,
+      active: slide.active,
+    }).subscribe({
+      next: (updated) => {
+        this.savingCarouselId[slide.id] = false;
+        Object.assign(slide, updated);
+        this.toast.success('Carousel slide saved');
+        this.cdr.markForCheck();
+      },
+      error: (e) => {
+        this.savingCarouselId[slide.id] = false;
+        this.toast.error(e.error?.message || 'Failed to save slide');
+        this.loadCarouselSlides();
+      },
+    });
+  }
+
+  moveCarouselSlide(index: number, delta: number) {
+    const targetIndex = index + delta;
+    if (targetIndex < 0 || targetIndex >= this.carouselSlides.length) return;
+    const slides = [...this.carouselSlides];
+    [slides[index], slides[targetIndex]] = [slides[targetIndex], slides[index]];
+    slides.forEach((slide, idx) => {
+      slide.displayOrder = idx;
+      this.reorderingCarousel[slide.id] = true;
+    });
+    this.carouselSlides = slides;
+    this.cdr.markForCheck();
+    forkJoin(
+      slides.map(slide =>
+        this.api.put<CarouselSlide>('/admin/carousel/slides/' + slide.id, { displayOrder: slide.displayOrder })
+      )
+    ).subscribe({
+      next: () => {
+        slides.forEach(slide => { this.reorderingCarousel[slide.id] = false; });
+        this.toast.success('Slide order updated');
+        this.loadCarouselSlides();
+      },
+      error: () => {
+        slides.forEach(slide => { this.reorderingCarousel[slide.id] = false; });
+        this.toast.error('Failed to reorder slides');
+        this.loadCarouselSlides();
+      },
+    });
+  }
+
+  deleteCarouselSlide(slide: CarouselSlide) {
+    if (!confirm('Delete this carousel slide?')) return;
+    this.deletingCarousel[slide.id] = true;
+    this.api.delete('/admin/carousel/slides/' + slide.id).subscribe({
+      next: () => {
+        this.deletingCarousel[slide.id] = false;
+        this.toast.success('Carousel slide deleted');
+        this.loadCarouselSlides();
+      },
+      error: (e) => {
+        this.deletingCarousel[slide.id] = false;
+        this.toast.error(e.error?.message || 'Failed to delete slide');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  loadFaqs() {
+    this.loadingFaqs = true;
+    this.api.get<FaqAdminRow[]>('/admin/faqs').subscribe({
+      next: (list) => {
+        this.ngZone.run(() => {
+          this.faqs = Array.isArray(list) ? list : [];
+          this.loadingFaqs = false;
+          this.cdr.detectChanges();
+        });
+      },
+      error: () => {
+        this.ngZone.run(() => {
+          this.loadingFaqs = false;
+          this.toast.error('Failed to load FAQs');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  openFaqForm(faq?: FaqAdminRow) {
+    if (faq) {
+      this.editingFaqId = faq.id;
+      this.faqForm = {
+        question: faq.question,
+        answer: faq.answer,
+        keywords: faq.keywords || '',
+        active: faq.active,
+        sortOrder: faq.sortOrder ?? 0,
+      };
+    } else {
+      this.editingFaqId = null;
+      this.faqForm = { question: '', answer: '', keywords: '', active: true, sortOrder: 0 };
+    }
+    this.faqFormOpen = true;
+  }
+
+  closeFaqForm() {
+    this.faqFormOpen = false;
+    this.editingFaqId = null;
+    this.savingFaq = false;
+  }
+
+  saveFaq() {
+    if (!this.faqForm.question.trim() || !this.faqForm.answer.trim()) {
+      this.toast.error('Question and answer are required');
+      return;
+    }
+    this.savingFaq = true;
+    this.cdr.detectChanges();
+    const body = {
+      question: this.faqForm.question.trim(),
+      answer: this.faqForm.answer.trim(),
+      keywords: this.faqForm.keywords?.trim() || null,
+      active: this.faqForm.active,
+      sortOrder: this.faqForm.sortOrder ?? 0,
+    };
+    const editingId = this.editingFaqId;
+    const req$ = editingId
+      ? this.api.put<FaqAdminRow>('/admin/faqs/' + editingId, body)
+      : this.api.post<FaqAdminRow>('/admin/faqs', body);
+    req$.subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.savingFaq = false;
+          this.closeFaqForm();
+          this.toast.success(editingId ? 'FAQ updated' : 'FAQ created');
+          this.loadFaqs();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.savingFaq = false;
+          this.toast.error(e.error?.message || 'Failed to save FAQ');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  deleteFaq(id: number) {
+    if (!confirm('Delete this FAQ?')) return;
+    this.deletingFaq[id] = true;
+    this.cdr.detectChanges();
+    this.api.delete('/admin/faqs/' + id).subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.deletingFaq[id] = false;
+          this.toast.success('FAQ deleted');
+          this.loadFaqs();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.deletingFaq[id] = false;
+          this.toast.error(e.error?.message || 'Delete failed');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  loadUnmatchedFaqs() {
+    this.loadingUnmatched = true;
+    this.api.get<UnmatchedFaqRow[]>('/admin/faqs/unmatched', { status: this.unmatchedStatusFilter }).subscribe({
+      next: (list) => {
+        this.ngZone.run(() => {
+          this.unmatchedFaqs = Array.isArray(list) ? list : [];
+          this.loadingUnmatched = false;
+          this.cdr.detectChanges();
+        });
+      },
+      error: () => {
+        this.ngZone.run(() => {
+          this.loadingUnmatched = false;
+          this.toast.error('Failed to load out-of-scope questions');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  resolveUnmatched(id: number) {
+    this.resolvingUnmatched[id] = true;
+    this.cdr.detectChanges();
+    this.api.put<UnmatchedFaqRow>('/admin/faqs/unmatched/' + id + '/resolve', {}).subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.resolvingUnmatched[id] = false;
+          this.toast.success('Marked as resolved');
+          this.loadUnmatchedFaqs();
+          this.refreshFaqMetric();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.resolvingUnmatched[id] = false;
+          this.toast.error(e.error?.message || 'Failed to resolve');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  openPromoteModal(u: UnmatchedFaqRow) {
+    this.promoteTargetId = u.id;
+    this.promoteForm = { question: u.questionText, answer: '', keywords: '' };
+    this.promoteModalOpen = true;
+  }
+
+  closePromoteModal() {
+    this.promoteModalOpen = false;
+    this.promoteTargetId = null;
+    this.promoting = false;
+  }
+
+  promoteUnmatched() {
+    if (!this.promoteTargetId || !this.promoteForm.answer.trim()) return;
+    this.promoting = true;
+    this.cdr.detectChanges();
+    this.api.post<UnmatchedFaqRow>('/admin/faqs/unmatched/' + this.promoteTargetId + '/promote', {
+      answer: this.promoteForm.answer.trim(),
+      keywords: this.promoteForm.keywords?.trim() || null,
+      active: true,
+      sortOrder: 0,
+    }).subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.promoting = false;
+          this.closePromoteModal();
+          this.toast.success('Promoted to FAQ');
+          this.loadFaqs();
+          this.loadUnmatchedFaqs();
+          this.refreshFaqMetric();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.promoting = false;
+          this.toast.error(e.error?.message || 'Failed to promote');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  private refreshFaqMetric() {
+    this.api.get<Record<string, number>>('/admin/metrics').subscribe({
+      next: (m) => {
+        this.metrics = m as typeof this.metrics;
+        this.cdr.markForCheck();
+      },
     });
   }
 }

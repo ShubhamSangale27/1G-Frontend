@@ -1,7 +1,9 @@
 import { Injectable, signal, computed } from '@angular/core';
+import { HttpContext } from '@angular/common/http';
+import { SKIP_GLOBAL_ERROR_TOAST } from '../http-context.tokens';
 import { Router } from '@angular/router';
+import { Observable, tap } from 'rxjs';
 import { ApiService } from './api.service';
-import { ToastrService } from 'ngx-toastr';
 
 export interface User {
   id: number;
@@ -11,6 +13,17 @@ export interface User {
   role: string;
   emailVerified: boolean;
   mobileVerified: boolean;
+  active?: boolean;
+  profileImageUrl?: string;
+}
+
+export interface PasswordOtpResponse {
+  message: string;
+  maskedMobile?: string;
+  resendAttemptsUsed?: number;
+  resendAttemptsRemaining?: number;
+  resendAvailableAt?: string;
+  maxResendAttemptsPerDay?: number;
 }
 
 export interface AuthResponse {
@@ -25,6 +38,10 @@ export interface SignupResponse {
   message: string;
   email: string;
   mobile: string;
+  resendAttemptsUsed?: number;
+  resendAttemptsRemaining?: number;
+  resendAvailableAt?: string;
+  maxResendAttemptsPerDay?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -33,52 +50,68 @@ export class AuthService {
   user = this.userSignal.asReadonly();
   isLoggedIn = computed(() => !!this.userSignal());
 
+  private readonly skipGlobalErrorToast = new HttpContext().set(SKIP_GLOBAL_ERROR_TOAST, true);
+
   constructor(
     private api: ApiService,
-    private router: Router,
-    private toast: ToastrService
+    private router: Router
   ) {
-    const u = localStorage.getItem('user');
-    if (u) this.userSignal.set(JSON.parse(u));
+    this.hydrateSessionFromStorage();
   }
 
-  login(email: string, password: string) {
-    return this.api.post<AuthResponse>('/auth/login', { email, password }).subscribe({
-      next: (res) => {
-        this.setSession(res);
-        setTimeout(() => {
-          this.toast.success(`Welcome back, ${res.user.fullName}`);
-          this.router.navigate(['/dashboard']);
-        }, 0);
-      },
-      error: (err) => {
-        setTimeout(() => this.toast.error(err.error?.message || 'Login failed'), 0);
-      },
-    });
+  /** Restore session only when both token and user exist; otherwise clear stale auth data. */
+  private hydrateSessionFromStorage(): void {
+    const token = localStorage.getItem('accessToken');
+    const userJson = localStorage.getItem('user');
+    if (!token || !userJson) {
+      if (token || userJson || localStorage.getItem('userRole') || localStorage.getItem('refreshToken')) {
+        this.clearSessionStorage();
+      }
+      this.userSignal.set(null);
+      return;
+    }
+    try {
+      const user = JSON.parse(userJson) as User;
+      this.userSignal.set(user);
+      if (user.role) {
+        localStorage.setItem('userRole', user.role);
+      }
+    } catch {
+      this.clearSession();
+    }
   }
 
-  signup(email: string, password: string, fullName: string, mobile: string) {
-    return this.api.post<SignupResponse>('/auth/signup', { email, password, fullName, mobile }).subscribe({
-      next: (res) => {
-        sessionStorage.setItem('pendingVerification', JSON.stringify({ email: res.email, mobile: res.mobile }));
-        setTimeout(() => {
-          this.toast.success(res.message || 'OTP sent to your mobile. Enter it on the next screen.');
-          this.router.navigate(['/verify-otp']);
-        }, 0);
-      },
-      error: (err) => {
-        setTimeout(() => this.toast.error(err.error?.message || 'Signup failed'), 0);
-      },
-    });
+  clearSession(): void {
+    this.clearSessionStorage();
+    this.userSignal.set(null);
   }
 
-  logout() {
-    this.api.post('/auth/logout', {}).subscribe({ error: () => {} });
+  private clearSessionStorage(): void {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     localStorage.removeItem('userRole');
-    this.userSignal.set(null);
+  }
+
+  /** Login POST; caller runs toasts/navigation inside NgZone. Session is set in `tap` on success. */
+  login(email: string, password: string): Observable<AuthResponse> {
+    return this.api.post<AuthResponse>('/auth/login', { email, password }, this.skipGlobalErrorToast).pipe(
+      tap((res) => this.setSession(res)),
+    );
+  }
+
+  /** Signup POST; caller handles OTP redirect UI. */
+  signup(email: string, password: string, fullName: string, mobile: string): Observable<SignupResponse> {
+    return this.api.post<SignupResponse>('/auth/signup', { email, password, fullName, mobile }, this.skipGlobalErrorToast);
+  }
+
+  resendSignupOtp(email: string, mobile: string) {
+    return this.api.post<SignupResponse>('/auth/resend-signup-otp', { email, mobile }, this.skipGlobalErrorToast);
+  }
+
+  logout() {
+    this.api.post('/auth/logout', {}).subscribe({ error: () => {} });
+    this.clearSession();
     this.router.navigate(['/']);
   }
 
@@ -95,7 +128,7 @@ export class AuthService {
   }
 
   getRole(): string {
-    return localStorage.getItem('userRole') || '';
+    return this.userSignal()?.role || '';
   }
 
   /** Call after OTP verification (verify-signup) to set session; caller should redirect (e.g. to /dashboard). */
@@ -126,5 +159,39 @@ export class AuthService {
   /** Send email verification link to current user's email (requires auth). */
   sendEmailVerification() {
     return this.api.post('/auth/send-email-verification', {});
+  }
+
+  getProfile() {
+    return this.api.get<User>('/users/me');
+  }
+
+  updateProfile(body: { fullName: string; email: string; profileImageUrl?: string | null }) {
+    return this.api.put<User>('/users/me', body).pipe(
+      tap((user) => this.updateLocalUser(user)),
+    );
+  }
+
+  forgotPassword(email: string) {
+    return this.api.post<PasswordOtpResponse>('/auth/forgot-password', { email }, this.skipGlobalErrorToast);
+  }
+
+  resetPassword(email: string, otp: string, newPassword: string) {
+    return this.api.post<{ message: string }>('/auth/reset-password', { email, otp, newPassword }, this.skipGlobalErrorToast);
+  }
+
+  sendChangePasswordOtp() {
+    return this.api.post<PasswordOtpResponse>('/auth/change-password/send-otp', {}, this.skipGlobalErrorToast);
+  }
+
+  changePassword(otp: string, newPassword: string) {
+    return this.api.post<{ message: string }>('/auth/change-password', { otp, newPassword }, this.skipGlobalErrorToast);
+  }
+
+  updateLocalUser(user: User): void {
+    this.userSignal.set(user);
+    localStorage.setItem('user', JSON.stringify(user));
+    if (user.role) {
+      localStorage.setItem('userRole', user.role);
+    }
   }
 }

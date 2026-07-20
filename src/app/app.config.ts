@@ -5,6 +5,8 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { ToastrModule } from 'ngx-toastr';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { authRefreshInterceptor } from './core/interceptors/auth-refresh.interceptor';
+import { errorInterceptor } from './core/interceptors/error.interceptor';
 import { ConfigService } from './core/services/config.service';
 
 export const appConfig: ApplicationConfig = {
@@ -17,7 +19,7 @@ export const appConfig: ApplicationConfig = {
       multi: true,
     },
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor, authRefreshInterceptor])),
     provideAnimations(),
     importProvidersFrom(
       ToastrModule.forRoot({

@@ -1,16 +1,30 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ConfigService } from '../../core/services/config.service';
 import { Property } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { getStateNames, getCitiesForState } from '../../core/data/indian-locations';
 import { PropertyMapComponent } from '../../shared/property-map/property-map.component';
-import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import {
+  resolvePropertyImageUrl,
+  resolveVideoEmbedUrl,
+  resolveVideoCardPosterUrl,
+  isAllowedImageUrl,
+  isAllowedVideoUrl,
+  upgradeInsecureMediaUrl,
+} from '../../core/utils/image-url.util';
+
+interface PropertyMediaItem {
+  imageUrl: string;
+  mediaType: 'IMAGE' | 'VIDEO';
+  previewImageUrl: string;
+  safeEmbedUrl?: SafeResourceUrl;
+}
 
 @Component({
   selector: 'app-property-form',
@@ -157,24 +171,43 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
           </div>
 
           <div class="form-section">
-            <h3>Property Images</h3>
+            <h3>Property Media (Images/Videos)</h3>
             <div class="images-section">
               <div class="add-url-row">
                 <div class="form-group add-url-input">
-                  <label>Image URL</label>
-                  <input type="url" [(ngModel)]="newImageUrl" [ngModelOptions]="{standalone: true}" placeholder="https://example.com/image.jpg" (keydown.enter)="addImageByUrl(); $event.preventDefault()" />
+                  <label>Media URL</label>
+                  <input type="text" [(ngModel)]="newMediaUrl" [ngModelOptions]="{standalone: true}" placeholder="Google Drive, public image, or YouTube URL" (keydown.enter)="onMediaUrlEnter($event)" />
                 </div>
-                <button type="button" class="btn btn-primary add-url-btn" (click)="addImageByUrl()">Add URL</button>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label>Type</label>
+                  <select [(ngModel)]="newMediaType" [ngModelOptions]="{standalone: true}">
+                    <option value="IMAGE">Image</option>
+                    <option value="VIDEO">Video</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-primary add-url-btn" (click)="addMediaByUrl()">Add URL</button>
               </div>
-              <small class="images-hint">Paste an image URL above and click Add URL. For Google Drive links, set the file sharing to &quot;Anyone with the link&quot; so the image can display.</small>
-              <div class="image-preview-row" *ngFor="let url of imageUrls; let i = index">
-                <img *ngIf="url" [src]="imagePreviewUrl(url)" alt="Preview" class="image-preview" (error)="onImageError($event)" />
-                <span *ngIf="!url" class="preview-placeholder">No image</span>
+              <small class="images-hint">Paste a public image URL, Google Drive image link, or YouTube video URL. Media is loaded directly from the URL — no file uploads.</small>
+              <p class="media-count" *ngIf="mediaItems.length">{{ mediaItems.length }} media item{{ mediaItems.length === 1 ? '' : 's' }} added</p>
+              <div class="image-preview-row" *ngFor="let media of mediaItems; let i = index">
+                <img *ngIf="media.mediaType === 'IMAGE'" [src]="media.previewImageUrl" alt="Preview" class="image-preview" (error)="onImageError($event)" />
+                <div *ngIf="media.mediaType === 'VIDEO' && media.safeEmbedUrl" class="video-preview-wrap">
+                  <iframe
+                    [src]="media.safeEmbedUrl"
+                    class="video-preview"
+                    title="Video preview"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    loading="lazy"
+                  ></iframe>
+                </div>
+                <div *ngIf="media.mediaType === 'VIDEO' && !media.safeEmbedUrl" class="preview-placeholder">Video preview unavailable</div>
                 <div class="image-actions">
-                  <button type="button" class="btn btn-outline btn-sm" (click)="removeImage(i)">Remove</button>
+                  <span class="badge badge-type-inline">{{ media.mediaType }}</span>
+                  <button type="button" class="btn btn-outline btn-sm" (click)="removeMedia(i)">Remove</button>
                 </div>
               </div>
-              <button type="button" class="btn btn-outline" (click)="addImageSlot()">+ Add another image slot</button>
             </div>
           </div>
 
@@ -197,6 +230,8 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
     .form-header h1 {
       font-size: 2.5rem;
       margin-bottom: 0.5rem;
+      color: var(--text);
+      font-weight: 800;
     }
     .form-header p {
       color: var(--text-muted);
@@ -255,7 +290,7 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
     }
     .form-group small {
       display: block;
@@ -290,6 +325,12 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
     }
     .images-hint {
       margin-bottom: 0.25rem;
+    }
+    .media-count {
+      margin: 0;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--primary);
     }
     .image-input {
       display: flex;
@@ -334,6 +375,32 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
     .image-actions {
       display: flex;
       gap: 0.5rem;
+      align-items: center;
+    }
+    .video-preview-wrap {
+      width: 200px;
+      max-width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: #0f172a;
+      position: relative;
+    }
+    .video-preview {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      object-fit: contain;
+    }
+    .badge-type-inline {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
     }
     .form-actions {
       display: flex;
@@ -358,19 +425,21 @@ export class PropertyFormComponent implements OnInit {
   isEdit = false;
   propertyId: number | null = null;
   submitting = false;
-  imageUrls: string[] = [];
-  newImageUrl = '';
+  mediaItems: PropertyMediaItem[] = [];
+  newMediaUrl = '';
+  newMediaType: 'IMAGE' | 'VIDEO' = 'IMAGE';
   stateNames = getStateNames();
   citiesForState: string[] = [];
 
   constructor(
     private fb: FormBuilder,
     private api: ApiService,
-    private config: ConfigService,
     public auth: AuthService,
     private router: Router,
     private route: ActivatedRoute,
-    private toast: ToastrService
+    private toast: ToastrService,
+    private sanitizer: DomSanitizer,
+    private cdr: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
       title: ['', Validators.required],
@@ -399,7 +468,7 @@ export class PropertyFormComponent implements OnInit {
       this.propertyId = +id;
       this.loadProperty();
     } else {
-      this.imageUrls = [''];
+      this.mediaItems = [];
     }
     this.updateCitiesForState();
   }
@@ -442,17 +511,31 @@ export class PropertyFormComponent implements OnInit {
         });
         this.updateCitiesForState();
         if (p.images && p.images.length) {
-          this.imageUrls = p.images.map(img => img.imageUrl);
+          this.mediaItems = p.images.map(img => this.buildMediaItem(img.imageUrl, img.mediaType || 'IMAGE'));
         } else {
-          this.imageUrls = [''];
+          this.mediaItems = [];
         }
       },
       error: () => this.toast.error('Failed to load property'),
     });
   }
 
-  imagePreviewUrl(url: string): string {
-    return resolvePropertyImageUrl(url, this.config.apiUrl);
+  private buildMediaItem(imageUrl: string, mediaType: 'IMAGE' | 'VIDEO'): PropertyMediaItem {
+    const url = (imageUrl || '').trim();
+    if (mediaType === 'VIDEO') {
+      const embed = resolveVideoEmbedUrl(url);
+      return {
+        imageUrl: url,
+        mediaType,
+        previewImageUrl: resolveVideoCardPosterUrl(url) || resolvePropertyImageUrl(url),
+        safeEmbedUrl: embed ? this.sanitizer.bypassSecurityTrustResourceUrl(embed) : undefined,
+      };
+    }
+    return {
+      imageUrl: url,
+      mediaType,
+      previewImageUrl: resolvePropertyImageUrl(url),
+    };
   }
 
   onImageError(event: Event) {
@@ -461,31 +544,59 @@ export class PropertyFormComponent implements OnInit {
     img.onerror = null;
   }
 
-  addImageByUrl() {
-    const url = (this.newImageUrl || '').trim();
+  onMediaUrlEnter(event: Event) {
+    event.preventDefault();
+    this.addMediaByUrl();
+  }
+
+  private normalizeMediaUrl(raw: string): string {
+    let url = (raw || '').trim();
+    if (!url) return '';
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url.replace(/^\/+/, '')}`;
+    }
+    return upgradeInsecureMediaUrl(url);
+  }
+
+  private isAcceptableImageUrl(url: string): boolean {
+    if (isAllowedImageUrl(url)) return true;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  addMediaByUrl() {
+    const url = this.normalizeMediaUrl(this.newMediaUrl);
     if (!url) {
-      this.toast.warning('Enter an image URL');
+      this.toast.warning('Enter a media URL');
       return;
     }
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      this.toast.warning('URL must start with http:// or https://');
+    if (this.newMediaType === 'VIDEO') {
+      if (!isAllowedVideoUrl(url)) {
+        this.toast.error('Video must be a YouTube or Google Drive link');
+        return;
+      }
+    } else if (!this.isAcceptableImageUrl(url)) {
+      this.toast.error('Enter a valid image URL (http:// or https://)');
       return;
     }
-    this.imageUrls.push(url);
-    this.newImageUrl = '';
-    this.toast.success('Image URL added');
+    if (this.mediaItems.some(m => m.imageUrl === url && m.mediaType === this.newMediaType)) {
+      this.toast.warning('This media URL is already in the list');
+      return;
+    }
+    this.mediaItems = [...this.mediaItems, this.buildMediaItem(url, this.newMediaType)];
+    this.newMediaUrl = '';
+    const label = this.newMediaType === 'VIDEO' ? 'Video' : 'Image';
+    this.toast.success(`${label} added (${this.mediaItems.length} total)`);
+    this.cdr.markForCheck();
   }
 
-  addImageSlot() {
-    this.imageUrls.push('');
-  }
-
-  addImage() {
-    this.imageUrls.push('');
-  }
-
-  removeImage(index: number) {
-    this.imageUrls.splice(index, 1);
+  removeMedia(index: number) {
+    this.mediaItems = this.mediaItems.filter((_, i) => i !== index);
+    this.cdr.markForCheck();
   }
 
   onSubmit() {
@@ -496,10 +607,13 @@ export class PropertyFormComponent implements OnInit {
 
     this.submitting = true;
     const formValue = this.form.value;
-    const images = this.imageUrls.filter(url => (url || '').trim()).map((url, idx) => ({
-      imageUrl: (url || '').trim(),
-      displayOrder: idx,
-    }));
+    const images = this.mediaItems
+      .filter(m => (m.imageUrl || '').trim())
+      .map((m, idx) => ({
+        imageUrl: (m.imageUrl || '').trim(),
+        mediaType: m.mediaType,
+        displayOrder: idx,
+      }));
 
     const payload = {
       ...formValue,

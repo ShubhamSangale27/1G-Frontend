@@ -5,6 +5,7 @@ export type PropertyStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 export interface PropertyImage {
   id?: number;
   imageUrl: string;
+  mediaType?: 'IMAGE' | 'VIDEO';
   caption?: string;
   displayOrder?: number;
 }

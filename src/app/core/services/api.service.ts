@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ConfigService } from './config.service';
 
@@ -14,8 +14,12 @@ export class ApiService {
     return this.config.apiUrl;
   }
 
-  get<T>(path: string, params?: Record<string, string | number | boolean>): Observable<T> {
-    let options: { params?: HttpParams } = {};
+  get<T>(
+    path: string,
+    params?: Record<string, string | number | boolean>,
+    context?: HttpContext,
+  ): Observable<T> {
+    let options: { params?: HttpParams; context?: HttpContext } = {};
     if (params && Object.keys(params).length) {
       let httpParams = new HttpParams();
       Object.entries(params).forEach(([k, v]) => {
@@ -23,15 +27,16 @@ export class ApiService {
       });
       options.params = httpParams;
     }
+    if (context) options.context = context;
     return this.http.get<T>(`${this.api}${path}`, options);
   }
 
-  post<T>(path: string, body: unknown): Observable<T> {
-    return this.http.post<T>(`${this.api}${path}`, body);
+  post<T>(path: string, body: unknown, context?: HttpContext): Observable<T> {
+    return this.http.post<T>(`${this.api}${path}`, body, context ? { context } : {});
   }
 
-  put<T>(path: string, body: unknown): Observable<T> {
-    return this.http.put<T>(`${this.api}${path}`, body);
+  put<T>(path: string, body: unknown, context?: HttpContext): Observable<T> {
+    return this.http.put<T>(`${this.api}${path}`, body, context ? { context } : {});
   }
 
   delete<T>(path: string): Observable<T> {

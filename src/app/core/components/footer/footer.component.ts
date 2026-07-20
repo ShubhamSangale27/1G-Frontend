@@ -1,19 +1,19 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
 
 @Component({
   selector: 'app-footer',
   standalone: true,
-  imports: [RouterLink, CommonModule],
+  imports: [RouterLink, CommonModule, BrandLogoComponent],
   template: `
     <footer class="footer">
       <div class="container">
         <div class="footer-grid">
           <div class="footer-col">
             <div class="footer-logo">
-              <span class="logo-icon">🏠</span>
-              <strong>1Guntha</strong>
+              <app-brand-logo variant="footer" />
             </div>
             <p>Your trusted partner for buying, selling, and renting properties in India. Find your dream home today.</p>
             <div class="social-links">
@@ -72,10 +72,11 @@ import { CommonModule } from '@angular/common';
   `,
   styles: [`
     .footer {
-      background: var(--text);
-      color: #94a3b8;
+      background: var(--footer-bg);
+      color: var(--footer-muted);
       padding: 3rem 0 1.5rem;
       margin-top: 4rem;
+      border-top: 1px solid var(--footer-border);
     }
     .footer-grid {
       display: grid;
@@ -84,21 +85,15 @@ import { CommonModule } from '@angular/common';
       margin-bottom: 2rem;
     }
     .footer-col h4 {
-      color: white;
+      color: var(--footer-text);
       font-size: 1rem;
       margin-bottom: 1rem;
       font-weight: 600;
     }
     .footer-logo {
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
+      align-items: flex-start;
       margin-bottom: 1rem;
-      color: white;
-      font-size: 1.25rem;
-    }
-    .logo-icon {
-      font-size: 1.5rem;
     }
     .footer-col p {
       font-size: 0.875rem;
@@ -133,13 +128,13 @@ import { CommonModule } from '@angular/common';
       margin-bottom: 0.5rem;
     }
     .footer-col ul li a {
-      color: #94a3b8;
+      color: var(--footer-muted);
       text-decoration: none;
       font-size: 0.875rem;
       transition: var(--transition);
     }
     .footer-col ul li a:hover {
-      color: white;
+      color: var(--footer-text);
     }
     .footer-bottom {
       display: flex;
@@ -148,7 +143,7 @@ import { CommonModule } from '@angular/common';
       flex-wrap: wrap;
       gap: 1rem;
       padding-top: 2rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-top: 1px solid var(--footer-border);
       font-size: 0.875rem;
     }
     .footer-links {
@@ -158,11 +153,11 @@ import { CommonModule } from '@angular/common';
       align-items: center;
     }
     .footer-links a {
-      color: #94a3b8;
+      color: var(--footer-muted);
       text-decoration: none;
     }
     .footer-links a:hover {
-      color: white;
+      color: var(--footer-text);
     }
     @media (max-width: 1024px) {
       .footer-grid {

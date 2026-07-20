@@ -3,29 +3,46 @@ import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { ConfigService } from '../../core/services/config.service';
+import { CarouselSlide } from '../../core/models/carousel.model';
 import { Property } from '../../core/models/property.model';
+import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 import { PropertyCardComponent } from '../../shared/property-card/property-card.component';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
+import { PropertyGrowthCalculatorComponent } from '../../shared/property-growth-calculator/property-growth-calculator.component';
 import { CarouselModule } from 'ngx-bootstrap/carousel';
+
+interface HomeCarouselSlide {
+  id?: number;
+  imageUrl: string;
+  linkUrl?: string;
+  altText?: string;
+  resolvedImageUrl: string;
+}
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, PropertyCardComponent, SkeletonLoaderComponent, CarouselModule],
+  imports: [CommonModule, RouterLink, FormsModule, PropertyCardComponent, SkeletonLoaderComponent, PropertyGrowthCalculatorComponent, CarouselModule],
   template: `
-   <carousel>
-  <slide>
-    <a href="#" target="_blank" class="carouselimg"><img src="assets/images/carousel/1.jpg" alt="first slide" style="display: block; width: 100%; max-height:200px;"></a>
-  </slide>
-  <slide>
-    <a href="#" target="_blank" class="carouselimg"><img src="assets/images/carousel/2.jpg" alt="second slide" style="display: block; width: 100%; max-height:200px;"></a>
-  </slide>
-  <slide>
-    <a href="#" target="_blank" class="carouselimg"><img src="assets/images/carousel/3.jpg" alt="third slide" style="display: block; width: 100%; max-height:200px;"></a>
-  </slide>
-</carousel>
-<br/>
-
+    <section class="home-carousel-wrap" aria-label="Featured banners">
+      <carousel
+        *ngIf="displayCarouselSlides.length"
+        [interval]="displayCarouselSlides.length > 1 ? carouselIntervalMs : 0"
+        [noWrap]="false"
+        [noPause]="true"
+        [isAnimated]="true"
+        [showIndicators]="displayCarouselSlides.length > 1">
+        <slide *ngFor="let slide of displayCarouselSlides">
+          <a *ngIf="slide.linkUrl" [href]="slide.linkUrl" target="_blank" rel="noopener" class="carouselimg">
+            <img [src]="slide.resolvedImageUrl" [alt]="slide.altText || 'Homepage banner'" />
+          </a>
+          <div *ngIf="!slide.linkUrl" class="carouselimg">
+            <img [src]="slide.resolvedImageUrl" [alt]="slide.altText || 'Homepage banner'" />
+          </div>
+        </slide>
+      </carousel>
+    </section>
 
  <div class="loancalcicon" id="loancalcid" onClick="showpopup1()">
 	    <img src="assets/images/calcicon.jpg">
@@ -44,7 +61,7 @@ import { CarouselModule } from 'ngx-bootstrap/carousel';
 				  <input type="text" id="roiid" name="roi" size="4" value="12" />%<br /><br />
 					<label>Enter Tenure in Years</label><br />
 				  <input type="text" id="tenureid" name="tenure" size="4" maxlength="12" value="3"/><br /><br />
-				  <input type="submit"  value="Calculate!" style="color:#000;" onClick="calcval()"/><br /><br />
+				  <input type="submit" class="btn btn-primary btn-sm" value="Calculate!" onClick="calcval()"/><br /><br />
 				  <label>Final Amount will be</label><br />
 				  <input type="text" name="finalamt" id="finalamtid" size="16" maxlength="12" disabled/><br />
 		  </div>
@@ -72,109 +89,22 @@ import { CarouselModule } from 'ngx-bootstrap/carousel';
       </div>
     </section>
 
-     <div class="row nomargin">
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/poplogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">POP service</h5>
-		<p> Modern POP (Plaster of Paris) designs blend architectural elegance with functional lighting to transform any ceiling into a masterpiece.
-</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/paintlogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Paint service</h5 >
-		<p> The Professional Touch<br/>
-Transforming spaces with a stroke of perfection. Quality finishes that stand the test of time.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/lightlogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Electrical service</h5>
-		<p> Professional & warm
-<br/>
-We craft lighting solutions that transform ordinary spaces into extraordinary experiences.
-From concept to installation, Lighting service brings brilliance to every corner.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/constructionlogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Construction & ReConstruction service</h5 >
-		<p> Strong & reassuring
-<br/>
-Reconstruction service restores what matters most — your space, your comfort, your peace of mind.
-From damage to done, we rebuild with precision, care, and craftsmanship you can trust.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  </div>
-  <div class="row nomargin"> 
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/doorlogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Door and Framing</h5 >
-		<p> Bold & confident
-<br/>
-We deliver precision-built doors and framing solutions that define the character of every space.
-Door and Framing service — where strength, style, and craftsmanship meet at every threshold.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/tileslogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Tiles service</h5 >
-		<p> Elegant & aspirational
-<br/>
-Tiles service brings together exquisite design and superior quality to transform every surface into a statement.
-From floors to walls, we lay the foundation of spaces that inspire and endure.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
- 
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/hardwarelogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Hardware service</h5 >
-		<p>  Strong & reliable
-<br/>
-Hardware service supplies and installs premium fittings, fixtures, and accessories that hold every space together.
-From the smallest hinge to the grandest finish, we deliver quality you can see and feel.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/fabrication.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Fabrication service</h5 >
-		<p>  Strong & industrial
-<br/>
-Fabrication service delivers precision-engineered metal and structural solutions built to the highest standards of quality and durability.
-From concept to completion, we fabricate with skill, accuracy, and craftsmanship that stands the test of time.</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-  </div>
-  <div class="row nomargin"> 
-  <div class="col-xs-12 col-sm-6  col-md-3 col-lg-3">
-	<div class="servicecards text-center">
-		<img src="assets/images/furniturelogo.png" class="img-fluid logoservice">
-		<h5 style="font-weight:bold; margin:5px;">Furniture service</h5 >
-		<p> Furniture service creates beautifully crafted pieces that bring warmth, character, and purpose to every living space.
-From custom designs to timeless classics, we build furniture that tells your story for generations to come.
-</p>
-		<input type ="button" value="Get Quote" onClick="showpopup()">
-	</div>
-  </div>
-
-  </div>
+    <section class="services-section" aria-label="Home improvement services">
+      <div class="container service-cards-wrap">
+        <h2 class="services-heading">Home services</h2>
+        <p class="services-sub">Quality partners for POP, paint, electrical, construction, and more — request a quote in one tap.</p>
+        <div class="service-cards-grid">
+          <article class="service-card" *ngFor="let s of services">
+            <div class="service-card-inner">
+              <img [src]="'assets/images/' + s.img" [alt]="s.title" class="service-card-icon" width="56" height="56" loading="lazy" />
+              <h3 class="service-card-title">{{ s.title }}</h3>
+              <p class="service-card-desc">{{ s.description }}</p>
+              <button type="button" class="btn btn-primary btn-sm service-card-cta" (click)="openQuotePopup()">Get Quote</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
   
   <div class="popup" id="popupid">
@@ -274,9 +204,8 @@ From custom designs to timeless classics, we build furniture that tells your sto
     </section>
 
 
-<div class="chart">
-<img src="assets/images/chart.png" class="img-fluid">
-</div>
+    <app-property-growth-calculator />
+
     <section class="featured-section">
       <div class="container">
         <div class="section-header">
@@ -314,6 +243,28 @@ From custom designs to timeless classics, we build furniture that tells your sto
     
   `,
   styles: [`
+    :host { display: block; }
+    .home-carousel-wrap {
+      --home-carousel-max-height: 330px;
+      margin-bottom: 1.5rem;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+    }
+    .home-carousel-wrap ::ng-deep carousel { display: block; }
+    .home-carousel-wrap ::ng-deep .carousel-inner,
+    .home-carousel-wrap ::ng-deep .item,
+    .home-carousel-wrap ::ng-deep slide { max-height: var(--home-carousel-max-height); }
+    .carouselimg {
+      display: block;
+      line-height: 0;
+    }
+    .carouselimg img {
+      display: block;
+      width: 100%;
+      max-height: var(--home-carousel-max-height);
+      object-fit: cover;
+    }
     .hero {
       position: relative;
       background: var(--primary-gradient);
@@ -392,7 +343,7 @@ From custom designs to timeless classics, we build furniture that tells your sto
     .search-box input {
       flex: 1;
       padding: 1.125rem 1.5rem;
-      color: #000;
+      color: var(--text);
       border: 2px solid var(--border);
       border-radius: var(--radius);
       font-size: 1rem;
@@ -547,7 +498,7 @@ From custom designs to timeless classics, we build furniture that tells your sto
       background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23dots)"/></svg>');
     }
     .cta-card {
-      background: white;
+      background: var(--surface);
       padding: 4rem 3rem;
       border-radius: var(--radius-xl);
       text-align: center;
@@ -556,12 +507,19 @@ From custom designs to timeless classics, we build furniture that tells your sto
       box-shadow: var(--shadow-2xl);
       position: relative;
       z-index: 1;
+      border: 1px solid var(--border-light);
     }
     .cta-card h2 {
       color: var(--text);
       margin-bottom: 1rem;
       font-size: 2.25rem;
       font-weight: 800;
+    }
+    .cta-card p {
+      color: var(--text-muted);
+      margin-bottom: 2.5rem;
+      font-size: 1.1875rem;
+      line-height: 1.6;
     }
       .loancalcicon{
 	      width: 50px;
@@ -591,7 +549,7 @@ From custom designs to timeless classics, we build furniture that tells your sto
     display: flex;
 	cursor:pointer;
 	z-index:999;
-	color: #000;
+	color: var(--footer-text);
 	font-weight: bold;
 	font-size:25pt;
 }
@@ -602,14 +560,15 @@ From custom designs to timeless classics, we build furniture that tells your sto
 
 
 .popup{
-	width : 50%;
+	width : min(100%, 520px);
 	height : 100%;
-	background-color: rgba(73, 73, 77, 0.88);
+	background-color: rgba(15, 23, 42, 0.88);
 	z-index:9999;
 	position: fixed;
 	display:none;
-	transform: translateX(50%);
+	right: 0;
 	top: 0;
+	left: auto;
 }
 .closeicon{
 	width: 50px;
@@ -620,7 +579,7 @@ From custom designs to timeless classics, we build furniture that tells your sto
     display: flex;
 	cursor:pointer;
 	z-index:999;
-	color: #000;
+	color: var(--footer-text);
 	font-weight: bold;
 	font-size:25pt;
 }
@@ -634,28 +593,100 @@ From custom designs to timeless classics, we build furniture that tells your sto
 }
 
 .formdata{
-	text-align: center;
+	text-align: left;
 	transform: translateY(5%);
-  color: #000;
+  color: var(--text);
   margin: 0 auto;
-  width: 60%;
-  
+  width: min(92%, 420px);
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
 }
-.logoservice{
-	width: 50px;
-	height: 50px;
-}
-
-
-
 .form-label{
-	color: #ffff;
+	color: var(--text-muted);
 }
-.servicecards{
-	margin: 15px;
-    background-color: cadetblue;
-	padding:10px;
+
+.services-section {
+  padding: 2.5rem 0 2rem;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--surface) 45%, var(--bg) 100%);
+  border-block: 1px solid var(--border-light);
+}
+.service-cards-wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.services-heading {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 800;
   text-align: center;
+  margin: 0 0 0.5rem;
+  color: var(--text);
+}
+.services-sub {
+  text-align: center;
+  color: var(--text-muted);
+  max-width: 42rem;
+  margin: 0 auto 1.75rem;
+  font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  line-height: 1.55;
+}
+.service-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+.service-card {
+  display: flex;
+  min-width: 0;
+}
+.service-card-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.125rem 1.35rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+}
+.service-card-inner:hover {
+  border-color: var(--primary-light);
+  box-shadow: var(--shadow-md);
+}
+.service-card-icon {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.service-card-title {
+  margin: 0.75rem 0 0.5rem;
+  color: var(--text);
+  font-size: clamp(1rem, 2vw, 1.125rem);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.service-card-desc {
+  flex: 1 1 auto;
+  margin: 0 0 1rem;
+  color: var(--text-secondary);
+  font-size: clamp(0.8125rem, 1.4vw, 0.9375rem);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.service-card-cta {
+  margin-top: auto;
+  align-self: center;
+  width: auto;
+  min-width: 9.5rem;
+  max-width: 100%;
 }
 
 .servicename{
@@ -665,176 +696,30 @@ From custom designs to timeless classics, we build furniture that tells your sto
 .hidepopup{
 	display:none;	
 }
-.chart{
-text-align: center;
-}
-.chart img{
-width : 80%;
-}
-    .cta-card p {
-      color: var(--text-muted);
-      margin-bottom: 2.5rem;
-      font-size: 1.1875rem;
-      line-height: 1.6;
-    }
     .empty-state {
       text-align: center;
       padding: 3rem;
       color: var(--text-muted);
     }
-      /* GLOBAL STYLES
--------------------------------------------------- */
-/* Padding below the footer and lighter body text */
-
-body {
-  padding-bottom: 40px;
-  color: #5a5a5a;
-}
-
-
-/* CUSTOMIZE THE NAVBAR
--------------------------------------------------- */
-
-/* Special class on .container surrounding .navbar, used for positioning it into place. */
-.navbar-wrapper {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 20;
-}
-
-/* Flip around the padding for proper display in narrow viewports */
-.navbar-wrapper > .container {
-  padding-right: 0;
-  padding-left: 0;
-}
-.navbar-wrapper .navbar {
-  padding-right: 15px;
-  padding-left: 15px;
-}
-.navbar-wrapper .navbar .container {
-  width: auto;
-}
-
-
-/* CUSTOMIZE THE CAROUSEL
--------------------------------------------------- */
-
-/* Carousel base class */
-.carousel {
-  height: 500px;
-  margin-bottom: 60px;
-}
-/* Since positioning the image, we need to help out the caption */
-.carousel-caption {
-  z-index: 10;
-}
-
-/* Declare heights because of positioning of img element */
-.carousel .item {
-  height: 500px;
-  background-color: #777;
-}
-.carousel-inner > .item > img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  min-width: 100%;
-  height: 500px;
-}
-
-
-/* MARKETING CONTENT
--------------------------------------------------- */
-
-/* Center align the text within the three columns below the carousel */
-.marketing .col-lg-4 {
-  margin-bottom: 20px;
-  text-align: center;
-}
-.marketing h2 {
-  font-weight: normal;
-}
-.marketing .col-lg-4 p {
-  margin-right: 10px;
-  margin-left: 10px;
-}
-
-
-/* Featurettes
-------------------------- */
-
-.featurette-divider {
-  margin: 80px 0; /* Space out the Bootstrap <hr> more */
-}
-
-/* Thin out the marketing headings */
-.featurette-heading {
-  font-weight: 300;
-  line-height: 1;
-  letter-spacing: -1px;
-}
-
-.carouselimg img{
-transition: transform .2s;
-}
-
-.carouselimg img:hover{
-transform: scale(1.2); 
-}
-
-/* RESPONSIVE CSS
--------------------------------------------------- */
-
-@media (min-width: 768px) {
-  /* Navbar positioning foo */
-  .navbar-wrapper {
-    margin-top: 20px;
-  }
-  .navbar-wrapper .container {
-    padding-right: 15px;
-    padding-left: 15px;
-  }
-  .navbar-wrapper .navbar {
-    padding-right: 0;
-    padding-left: 0;
-  }
-
-  /* The navbar becomes detached from the top, so we round the corners */
-  .navbar-wrapper .navbar {
-    border-radius: 4px;
-  }
-
-  /* Bump up size of carousel content */
-  .carousel-caption p {
-    margin-bottom: 20px;
-    font-size: 21px;
-    line-height: 1.4;
-  }
-
-  .featurette-heading {
-    font-size: 50px;
-  }
-}
-
-@media (min-width: 992px) {
-  .featurette-heading {
-    margin-top: 120px;
-  }
-}
+    .carouselimg img {
+      transition: transform 0.25s ease;
+    }
+    .carouselimg img:hover {
+      transform: scale(1.02);
+    }
     @media (max-width: 768px) {
 
       .hero h1 { font-size: 2.5rem; }
       .hero-subtitle { font-size: 1.125rem; }
-      .search-box { flex-direction: column; color: #000; }
+      .search-box { flex-direction: column; color: var(--text); }
       .section-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
 
       .popup{
         width :100%;
         height : 100%;
-        transform: translateX(0%);
-      }	
+        left: 0;
+        right: 0;
+      }
     }
   `],
 })
@@ -843,9 +728,84 @@ export class HomeComponent implements OnInit {
   loading = true;
   searchType = 'buy';
   searchQuery = '';
+  displayCarouselSlides: HomeCarouselSlide[] = [];
+  readonly carouselMaxHeightPx = 330;
+  readonly carouselIntervalMs = 5000;
 
+  private readonly fallbackCarouselSlides: HomeCarouselSlide[] = [
+    { imageUrl: 'assets/images/carousel/1.jpg', resolvedImageUrl: 'assets/images/carousel/1.jpg', altText: 'Banner 1' },
+    { imageUrl: 'assets/images/carousel/2.jpg', resolvedImageUrl: 'assets/images/carousel/2.jpg', altText: 'Banner 2' },
+    { imageUrl: 'assets/images/carousel/3.jpg', resolvedImageUrl: 'assets/images/carousel/3.jpg', altText: 'Banner 3' },
+  ];
 
-  constructor(private api: ApiService, private router: Router, private cdr: ChangeDetectorRef) {}
+  readonly services: { img: string; title: string; description: string }[] = [
+    {
+      img: 'poplogo.png',
+      title: 'POP service',
+      description:
+        'Modern POP (Plaster of Paris) designs blend architectural elegance with functional lighting to transform any ceiling into a masterpiece.',
+    },
+    {
+      img: 'paintlogo.png',
+      title: 'Paint service',
+      description:
+        'The professional touch — transforming spaces with a stroke of perfection. Quality finishes that stand the test of time.',
+    },
+    {
+      img: 'lightlogo.png',
+      title: 'Electrical service',
+      description:
+        'We craft lighting solutions that transform ordinary spaces into extraordinary experiences. From concept to installation, brilliance in every corner.',
+    },
+    {
+      img: 'constructionlogo.png',
+      title: 'Construction & reconstruction',
+      description:
+        'Reconstruction restores what matters most — your space, your comfort, your peace of mind. We rebuild with precision, care, and craftsmanship you can trust.',
+    },
+    {
+      img: 'doorlogo.png',
+      title: 'Door and framing',
+      description:
+        'Precision-built doors and framing that define the character of every space — strength, style, and craftsmanship at every threshold.',
+    },
+    {
+      img: 'tileslogo.png',
+      title: 'Tiles service',
+      description:
+        'Exquisite design and superior quality for floors and walls — surfaces that inspire and endure.',
+    },
+    {
+      img: 'hardwarelogo.png',
+      title: 'Hardware service',
+      description:
+        'Premium fittings, fixtures, and accessories — from the smallest hinge to the grandest finish, quality you can see and feel.',
+    },
+    {
+      img: 'fabrication.png',
+      title: 'Fabrication service',
+      description:
+        'Precision-engineered metal and structural solutions — fabricated with skill, accuracy, and durability that stands the test of time.',
+    },
+    {
+      img: 'furniturelogo.png',
+      title: 'Furniture service',
+      description:
+        'Beautifully crafted pieces for warmth, character, and purpose — from custom designs to timeless classics built for generations.',
+    },
+  ];
+
+  constructor(
+    private api: ApiService,
+    private config: ConfigService,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
+
+  openQuotePopup(): void {
+    const w = window as unknown as { showpopup?: () => void };
+    w.showpopup?.();
+  }
 
    slides: {image: string; text?: string}[] =  [
     {image: 'assets/images/nature/5.jpg'},
@@ -859,7 +819,7 @@ export class HomeComponent implements OnInit {
   }
 
   ngOnInit() {
-    
+    this.loadCarouselSlides();
     this.api.get<Property[]>('/properties/public/featured').subscribe({
       next: (data) => {
         this.featured = Array.isArray(data) ? data : [];
@@ -879,5 +839,33 @@ export class HomeComponent implements OnInit {
     if (this.searchType === 'rent') params.listingType = 'RENT';
     else params.listingType = 'SALE';
     this.router.navigate(['/search'], { queryParams: params });
+  }
+
+  private loadCarouselSlides() {
+    this.api.get<CarouselSlide[]>('/carousel/slides').subscribe({
+      next: (slides) => {
+        const list = Array.isArray(slides) ? slides : [];
+        if (list.length) {
+          this.displayCarouselSlides = list.map(slide => this.toDisplaySlide(slide));
+        } else {
+          this.displayCarouselSlides = [...this.fallbackCarouselSlides];
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.displayCarouselSlides = [...this.fallbackCarouselSlides];
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private toDisplaySlide(slide: CarouselSlide): HomeCarouselSlide {
+    return {
+      id: slide.id,
+      imageUrl: slide.imageUrl,
+      linkUrl: slide.linkUrl,
+      altText: slide.altText,
+      resolvedImageUrl: resolvePropertyImageUrl(slide.imageUrl, this.config.apiUrl) || slide.imageUrl,
+    };
   }
 }

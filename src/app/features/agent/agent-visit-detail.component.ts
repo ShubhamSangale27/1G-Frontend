@@ -6,6 +6,7 @@ import { ApiService } from '../../core/services/api.service';
 import { ConfigService } from '../../core/services/config.service';
 import { ToastrService } from 'ngx-toastr';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
 
 interface PropertySummary {
   id: number;
@@ -52,7 +53,7 @@ interface SiteVisitDetail {
 @Component({
   selector: 'app-agent-visit-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, IndianPricePipe],
   template: `
     <div class="visit-detail-page">
       <div class="container">
@@ -80,7 +81,7 @@ interface SiteVisitDetail {
                 <dt>Type</dt>
                 <dd>{{ detail.property.propertyType }} · {{ detail.property.listingType }}</dd>
                 <dt>Price</dt>
-                <dd>₹ {{ detail.property.price | number }}</dd>
+                <dd>{{ detail.property.price | indianPrice }}</dd>
                 <dt>Beds / Baths / Area</dt>
                 <dd>{{ detail.property.bedrooms }} / {{ detail.property.bathrooms }} / {{ detail.property.areaSqft }} sq ft</dd>
                 <dt *ngIf="detail.property.amenities">Amenities</dt>
@@ -103,14 +104,19 @@ interface SiteVisitDetail {
             </section>
           </div>
 
-          <section class="card complete-section" *ngIf="detail.status === 'ASSIGNED'">
-            <h2>Mark visit as done</h2>
-            <p class="help-text">Enter the OTP that was sent to the customer when the visit was assigned.</p>
+          <section class="card complete-section highlight-card" *ngIf="detail.status === 'ASSIGNED'">
+            <div class="complete-header">
+              <span class="complete-icon">✅</span>
+              <div>
+                <h2>Complete this visit</h2>
+                <p class="help-text">The customer received an OTP on their mobile. They must share it with you in person — you cannot look it up.</p>
+              </div>
+            </div>
             <div class="otp-row">
-              <input type="text" class="form-input otp-input" [(ngModel)]="otp" placeholder="Enter 6-digit OTP"
+              <input type="text" class="form-input otp-input" [(ngModel)]="otp" placeholder="6-digit OTP"
                      maxlength="6" pattern="[0-9]*" inputmode="numeric" />
-              <button type="button" class="btn btn-primary" (click)="completeVisit()" [disabled]="completing || !otp.trim()">
-                {{ completing ? 'Completing...' : 'Complete visit' }}
+              <button type="button" class="btn btn-primary btn-lg" (click)="completeVisit()" [disabled]="completing || !otp.trim()">
+                {{ completing ? 'Completing…' : 'Mark visit complete' }}
               </button>
             </div>
           </section>
@@ -163,8 +169,8 @@ interface SiteVisitDetail {
       font-size: 0.75rem;
       font-weight: 600;
     }
-    .status-assigned { background: #dbeafe; color: #1e40af; }
-    .status-completed { background: #d1fae5; color: #065f46; }
+    .status-assigned { background: var(--info-bg); color: var(--info-text); }
+    .status-completed { background: var(--success-bg); color: var(--success-text); }
     .grid-two {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -196,6 +202,10 @@ interface SiteVisitDetail {
     .user-dl a { color: var(--primary); }
     .user-notes { font-style: italic; color: var(--text-muted); }
     .complete-section { margin-bottom: 1.5rem; }
+    .highlight-card { border: 2px solid rgba(14,165,233,0.35); background: linear-gradient(135deg, rgba(14,165,233,0.06), #fff); }
+    .complete-header { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+    .complete-icon { font-size: 2rem; }
+    .complete-header h2 { margin: 0 0 0.25rem; }
     .help-text { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem; }
     .otp-row {
       display: flex;

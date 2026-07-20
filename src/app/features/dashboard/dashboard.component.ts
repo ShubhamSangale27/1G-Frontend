@@ -1,4 +1,5 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -8,6 +9,8 @@ import { ConfigService } from '../../core/services/config.service';
 import { Property, PageResponse } from '../../core/models/property.model';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { ToastrService } from 'ngx-toastr';
+import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
 
 interface SiteVisit {
   id: number;
@@ -27,27 +30,8 @@ interface Alert {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, SkeletonLoaderComponent],
+  imports: [CommonModule, FormsModule, RouterLink, SkeletonLoaderComponent, IndianPricePipe],
   template: `
-  <meta name="keywords" content="real estate Ahilyanagar, properties for sale Ahilyanagar, buy property Ahilyanagar, sell property Ahilyanagar, Kalpana Developers, real estate agent Ahilyanagar">
-  <meta name="description" content="Kalpana Developers — trusted real estate agency in Ahilyanagar. Buy and sell residential & commercial properties with expert local guidance. Explore listings today.">
-  <link rel="canonical" href="https://www.kalpanadevelopers.com/">
-  <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "RealEstateAgent",
-  "name": "Kalpana Developers",
-  "url": "https://www.kalpanadevelopers.com",
-  "description": "Buy and sell properties in Ahilyanagar with Kalpana Developers.",
-  "address": {
-    "@type": "PostalAddress",
-    "addressLocality": "Ahilyanagar",
-    "addressRegion": "Maharashtra",
-    "addressCountry": "IN"
-  },
-  "areaServed": "Ahilyanagar"
-}
-</script>
     <div class="dashboard-page">
       <div class="container">
         <div class="dashboard-header">
@@ -154,11 +138,11 @@ interface Alert {
               </div>
               <div class="properties-list" *ngIf="recentProperties.length && !loadingProperties">
                 <div class="property-item" *ngFor="let p of recentProperties">
-                  <div class="property-thumb" [style.backgroundImage]="'url(' + resolveImageUrl(p.images?.[0]?.imageUrl) + ')'"></div>
+                  <div class="property-thumb" [style.backgroundImage]="'url(' + resolveImageUrl(firstImageUrl(p)) + ')'"></div>
                   <div class="property-info">
                     <div class="property-title">{{ p.title }}</div>
                     <div class="property-meta">
-                      <span>₹ {{ p.price | number }}</span>
+                      <span>{{ p.price | indianPrice }}</span>
                       <span class="property-status" [class.status-approved]="p.status === 'APPROVED'"
                             [class.status-pending]="p.status === 'PENDING_APPROVAL'"
                             [class.status-rejected]="p.status === 'REJECTED'">
@@ -419,9 +403,9 @@ interface Alert {
       font-weight: 600;
       text-transform: capitalize;
     }
-    .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
-    .status-assigned { background: rgba(37, 99, 235, 0.1); color: var(--primary); }
-    .status-completed { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+    .status-pending { background: var(--status-pending-bg); color: var(--status-pending-text); }
+    .status-assigned { background: var(--info-bg); color: var(--info-text); }
+    .status-completed { background: var(--success-bg); color: var(--success-text); }
     .status-approved { background: rgba(16, 185, 129, 0.1); color: var(--success); }
     .status-rejected { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
     .property-thumb {
@@ -481,7 +465,7 @@ interface Alert {
     }
     .notification-item.unread {
       border-left-color: var(--primary);
-      background: rgba(37, 99, 235, 0.05);
+      background: rgba(14, 165, 233, 0.06);
     }
     .notification-title {
       font-weight: 600;
@@ -550,16 +534,37 @@ export class DashboardComponent implements OnInit {
   rescheduling = false;
   sendingEmailVerification = false;
 
-  constructor(public auth: AuthService, private api: ApiService, private config: ConfigService, private toast: ToastrService, private cdr: ChangeDetectorRef) {}
+  constructor(
+    public auth: AuthService,
+    private api: ApiService,
+    private config: ConfigService,
+    private toast: ToastrService,
+    private cdr: ChangeDetectorRef,
+    private title: Title,
+    private meta: Meta,
+  ) {}
 
   resolveImageUrl(url: string | undefined): string {
     if (!url) return 'https://placehold.co/100';
-    if (url.startsWith('http')) return url;
-    const base = this.config.apiUrl.replace(/\/$/, '');
-    return base + (url.startsWith('/') ? url : '/' + url);
+    return resolvePropertyImageUrl(url, this.config.apiUrl);
+  }
+
+  firstImageUrl(p: Property): string | undefined {
+    const media = p.images || [];
+    const image = media.find(m => !m.mediaType || m.mediaType === 'IMAGE');
+    return image?.imageUrl;
   }
 
   ngOnInit() {
+    this.title.setTitle('Dashboard | 1Guntha');
+    this.meta.updateTag({
+      name: 'description',
+      content: 'Your 1Guntha dashboard — site visits, listings, and notifications.',
+    });
+    this.meta.updateTag({
+      name: 'keywords',
+      content: '1Guntha, real estate, dashboard, property listings, India',
+    });
     this.loadVisits();
     this.loadRecentProperties();
     this.loadStats();

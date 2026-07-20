@@ -2,17 +2,19 @@ import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { ConfigService } from '../../services/config.service';
+import { resolvePropertyImageUrl } from '../../utils/image-url.util';
+import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive],
+  imports: [CommonModule, RouterLink, RouterLinkActive, BrandLogoComponent],
   template: `
     <header class="header">
       <div class="container header-inner">
-        <a routerLink="/" class="logo">
-          <span class="logo-icon">🏠</span>
-          <span>1Guntha</span>
+        <a routerLink="/" class="logo" aria-label="1Guntha home">
+          <app-brand-logo variant="compact" />
         </a>
         <nav class="nav">
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
@@ -21,7 +23,10 @@ import { AuthService } from '../../services/auth.service';
           <a routerLink="/search" routerLinkActive="active">
             <span>Search</span>
           </a>
-          <ng-container *ngIf="auth.user() as u">
+          <a routerLink="/blog" routerLinkActive="active">
+            <span>Blog</span>
+          </a>
+          <ng-container *ngIf="auth.isLoggedIn() && auth.user() as u">
             <a routerLink="/dashboard" routerLinkActive="active">
               <span>Dashboard</span>
             </a>
@@ -31,22 +36,31 @@ import { AuthService } from '../../services/auth.service';
             <a routerLink="/property/new" class="btn btn-accent btn-sm">
               <span>+ List Property</span>
             </a>
-            <a *ngIf="auth.getRole() === 'AGENT' || auth.getRole() === 'ADMIN'" routerLink="/agent" routerLinkActive="active">
+            <a *ngIf="u.role === 'AGENT' || u.role === 'ADMIN'" routerLink="/agent" routerLinkActive="active">
               <span>Agent</span>
             </a>
-            <a *ngIf="auth.getRole() === 'ADMIN'" routerLink="/admin" routerLinkActive="active">
+            <a *ngIf="u.role === 'ADMIN'" routerLink="/admin" routerLinkActive="active">
               <span>Admin</span>
             </a>
+            <a *ngIf="u.role === 'BLOG' || u.role === 'ADMIN'" routerLink="/blog-editor" routerLinkActive="active">
+              <span>Blog Studio</span>
+            </a>
             <div class="user-menu">
-              <div class="user-avatar">{{ u.fullName.charAt(0) }}</div>
-              <div class="user-info">
-                <div class="user-name">{{ u.fullName }}</div>
-                <div class="user-email">{{ u.email }}</div>
-              </div>
+              <a routerLink="/profile" class="user-menu-link" title="Edit profile">
+                @if (avatarUrl(u)) {
+                  <img [src]="avatarUrl(u)!" alt="" class="user-avatar-img" />
+                } @else {
+                  <div class="user-avatar">{{ u.fullName.charAt(0) }}</div>
+                }
+                <div class="user-info">
+                  <div class="user-name">{{ u.fullName }}</div>
+                  <div class="user-email">{{ u.email }}</div>
+                </div>
+              </a>
             </div>
             <button type="button" class="btn btn-outline btn-sm" (click)="auth.logout()">Logout</button>
           </ng-container>
-          <ng-container *ngIf="!auth.user()">
+          <ng-container *ngIf="!auth.isLoggedIn()">
             <a routerLink="/login" routerLinkActive="active">Login</a>
             <a routerLink="/signup" class="btn btn-primary btn-sm">Sign Up</a>
           </ng-container>
@@ -76,22 +90,10 @@ import { AuthService } from '../../services/auth.service';
       box-sizing: border-box;
     }
     .logo {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 1.625rem;
-      background: var(--primary-gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
       text-decoration: none;
-      letter-spacing: -0.5px;
-    }
-    .logo-icon {
-      font-size: 1.875rem;
-      filter: drop-shadow(0 2px 4px rgba(14, 165, 233, 0.3));
+      flex-shrink: 0;
     }
     .nav {
       display: flex;
@@ -133,16 +135,33 @@ import { AuthService } from '../../services/auth.service';
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.5rem 1rem;
+      padding: 0.25rem;
       background: var(--bg);
       border-radius: var(--radius);
       margin-right: 0.5rem;
       border: 1px solid var(--border);
     }
-    .user-avatar {
+    .user-menu-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+      text-decoration: none;
+      color: inherit;
+      border-radius: var(--radius-sm);
+    }
+    .user-menu-link:hover {
+      background: rgba(14, 165, 233, 0.08);
+    }
+    .user-avatar,
+    .user-avatar-img {
       width: 38px;
       height: 38px;
       border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
+    }
+    .user-avatar {
       background: var(--primary-gradient);
       color: white;
       display: flex;
@@ -150,7 +169,10 @@ import { AuthService } from '../../services/auth.service';
       justify-content: center;
       font-weight: 700;
       font-size: 0.9375rem;
-      box-shadow: var(--shadow-sm);
+    }
+    .user-avatar-img {
+      object-fit: cover;
+      display: block;
     }
     .user-info {
       display: none;
@@ -194,12 +216,6 @@ import { AuthService } from '../../services/auth.service';
       .user-menu .user-info {
         display: none;
       }
-      .logo {
-        font-size: 1.25rem;
-      }
-      .logo-icon {
-        font-size: 1.5rem;
-      }
     }
     @media (max-width: 480px) {
       .header-inner {
@@ -213,5 +229,13 @@ import { AuthService } from '../../services/auth.service';
   `],
 })
 export class HeaderComponent {
-  constructor(public auth: AuthService) {}
+  constructor(
+    public auth: AuthService,
+    private config: ConfigService,
+  ) {}
+
+  avatarUrl(u: { profileImageUrl?: string }): string | null {
+    if (!u.profileImageUrl) return null;
+    return resolvePropertyImageUrl(u.profileImageUrl, this.config.apiUrl);
+  }
 }

@@ -3,26 +3,28 @@ import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Property } from '../../core/models/property.model';
 import { ConfigService } from '../../core/services/config.service';
-import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import { resolvePropertyImageUrl, resolveVideoCardPosterUrl } from '../../core/utils/image-url.util';
+import { IndianPricePipe } from '../pipes/indian-price.pipe';
 
 @Component({
   selector: 'app-property-card',
   standalone: true,
-  imports: [RouterLink, CommonModule],
+  imports: [RouterLink, CommonModule, IndianPricePipe],
   template: `
     <a [routerLink]="['/property', property.id]" class="card property-card">
       <div class="img-wrap">
         <img [src]="imgUrl" [alt]="property.title" (error)="onImgError($event)" />
         <div class="overlay-badges">
           <span class="badge badge-listing">{{ property.listingType }}</span>
+          <span class="badge badge-verified">✔ Verified</span>
           <span class="badge badge-premium" *ngIf="property.isPremium">⭐ Premium</span>
         </div>
         <div class="img-count" *ngIf="property.images && property.images.length > 1">
-          📷 {{ property.images.length }}
+          {{ mediaGalleryLabel }}
         </div>
       </div>
       <div class="body">
-        <div class="price-tag">₹ {{ property.price | number }}</div>
+        <div class="price-tag">{{ property.price | indianPrice }}</div>
         <h3>{{ property.title }}</h3>
         <p class="location">
           <span>📍</span> {{ property.city }}{{ property.locality ? ', ' + property.locality : '' }}
@@ -105,6 +107,17 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
       font-size: 0.75rem;
       font-weight: 700;
       box-shadow: var(--shadow-lg);
+    }
+    .badge-verified {
+      background: var(--verified-gradient);
+      color: #fff;
+      padding: 0.4375rem 0.875rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 700;
+      box-shadow: var(--shadow-lg);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .img-count {
       position: absolute;
@@ -204,9 +217,22 @@ export class PropertyCardComponent {
   constructor(private config: ConfigService) {}
 
   get imgUrl(): string {
-    const imgs = this.property.images;
-    if (imgs?.length) return resolvePropertyImageUrl(imgs[0].imageUrl, this.config.apiUrl);
+    const all = this.property.images || [];
+    const imgs = all.filter((i) => !i.mediaType || i.mediaType === 'IMAGE');
+    if (imgs.length) return resolvePropertyImageUrl(imgs[0].imageUrl, this.config.apiUrl);
+    const videos = all.filter((i) => i.mediaType === 'VIDEO');
+    if (videos.length) {
+      const poster = resolveVideoCardPosterUrl(videos[0].imageUrl, this.config.apiUrl);
+      if (poster) return poster;
+    }
     return 'https://placehold.co/400x250?text=Property';
+  }
+
+  get mediaGalleryLabel(): string {
+    const all = this.property.images || [];
+    const n = all.length;
+    const hasVideo = all.some((i) => i.mediaType === 'VIDEO');
+    return `${hasVideo ? '▶' : '📷'} ${n}`;
   }
 
   onImgError(event: Event) {

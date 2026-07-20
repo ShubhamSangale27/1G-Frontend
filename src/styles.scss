@@ -31,6 +31,7 @@
   --radius-lg: 14px;
   --radius-xl: 20px;
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
@@ -39,6 +40,28 @@
   --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Semantic surfaces (status chips, hovers) — aligned to primary cyan */
+  --info-bg: rgba(14, 165, 233, 0.12);
+  --info-text: #0369a1;
+  --success-bg: rgba(16, 185, 129, 0.12);
+  --success-text: #047857;
+  --success-dark: #059669;
+  /** Verified / success CTAs (badges, pills) */
+  --verified-gradient: linear-gradient(135deg, var(--success-dark) 0%, var(--success) 100%);
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --warning-text: #b45309;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --danger-text-strong: #b91c1c;
+  /** Table/chip statuses (admin, dashboards) */
+  --status-pending-bg: rgba(245, 158, 11, 0.18);
+  --status-pending-text: var(--warning-text);
+  --status-neutral-bg: rgba(148, 163, 184, 0.22);
+  --status-neutral-text: #475569;
+  /* Footer (dark band below main content) */
+  --footer-bg: #0f172a;
+  --footer-text: #e2e8f0;
+  --footer-muted: #94a3b8;
+  --footer-border: rgba(255, 255, 255, 0.08);
 }
 
 html {
@@ -131,7 +154,7 @@ a {
   color: var(--primary);
   border: 2px solid var(--primary);
   &:hover:not(:disabled) {
-    background: rgba(37, 99, 235, 0.08);
+    background: rgba(14, 165, 233, 0.08);
     border-color: var(--primary-dark);
   }
 }
@@ -188,7 +211,7 @@ a {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
-      background: #fafbfc;
+      background: var(--surface-hover);
     }
     &.ng-invalid.ng-touched {
       border-color: var(--danger);
@@ -245,11 +268,20 @@ a {
     color: var(--primary);
     border: 1px solid var(--primary);
   }
+  &.badge-info {
+    background: var(--info-bg);
+    color: var(--info-text);
+  }
+}
+
+/* Shared page rhythm: use inside routed views for consistent vertical spacing */
+.page-stack {
+  padding: 2rem 0 4rem;
+  box-sizing: border-box;
 }
 
 .toast-container {
   position: fixed;
-  z-index: 9999;
 }
 
 .section-title {
@@ -288,4 +320,30 @@ a {
     padding: 0.4rem 0.75rem;
     font-size: 0.8125rem;
   }
+}
+
+/* ngx-toastr: above site-visit dialogs (600000), header (1000), and home widgets */
+#toast-container,
+.toast-container {
+  z-index: 800000 !important;
+}
+
+/* Blog rich text (innerHTML content — must be global) */
+.blog-rich-text h1, .blog-rich-text h2, .blog-rich-text h3 {
+  font-family: var(--font-display);
+  color: var(--text);
+  line-height: 1.3;
+}
+.blog-rich-text h2 { font-size: 1.5rem; margin: 1.25rem 0 0.5rem; }
+.blog-rich-text h3 { font-size: 1.2rem; margin: 1rem 0 0.4rem; }
+.blog-rich-text p { margin: 0.5rem 0; line-height: 1.8; color: var(--text-secondary); }
+.blog-rich-text ul, .blog-rich-text ol { margin: 0.5rem 0 0.5rem 1.5rem; color: var(--text-secondary); }
+.blog-rich-text a { color: var(--primary); font-weight: 600; }
+.blog-rich-text strong { color: var(--text); }
+.blog-rich-text blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--primary);
+  background: var(--info-bg);
+  color: var(--text-secondary);
 }

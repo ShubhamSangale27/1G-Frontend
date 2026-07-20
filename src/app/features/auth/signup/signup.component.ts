@@ -1,22 +1,29 @@
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, NgZone, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Router, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { AuthService } from '../../../core/services/auth.service';
+import { ToastrService } from 'ngx-toastr';
+import { AuthService, SignupResponse } from '../../../core/services/auth.service';
+import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.util';
+import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-logo.component';
 
 @Component({
   selector: 'app-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent],
   template: `
     <div class="auth-page">
       <div class="auth-background"></div>
       <div class="auth-container">
         <div class="card auth-card">
           <div class="auth-header">
-            <div class="auth-logo">🏠</div>
+            <app-brand-logo variant="auth" />
             <h1>Create Account</h1>
             <p>Join thousands of property owners and buyers on 1Guntha</p>
           </div>
+          @if (inlineError()) {
+            <div class="auth-inline-error" role="alert">{{ inlineError() }}</div>
+          }
           <form [formGroup]="form" (ngSubmit)="onSubmit()">
             <div class="form-group">
               <label>Full Name</label>
@@ -46,8 +53,8 @@ import { AuthService } from '../../../core/services/auth.service';
                 <span class="error">Password must be at least 8 characters</span>
               }
             </div>
-            <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="form.invalid">
-              Create Account
+            <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="form.invalid || submitting()">
+              {{ submitting() ? 'Creating…' : 'Create Account' }}
             </button>
           </form>
           <div class="auth-footer">
@@ -85,14 +92,19 @@ import { AuthService } from '../../../core/services/auth.service';
       border: 2px solid var(--border);
       box-shadow: var(--shadow-2xl);
     }
+    .auth-inline-error {
+      margin: 0 0 1.25rem;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius);
+      background: var(--danger-bg);
+      color: var(--danger-text-strong);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+    }
     .auth-header {
       text-align: center;
       margin-bottom: 2.5rem;
-    }
-    .auth-logo {
-      font-size: 3.5rem;
-      margin-bottom: 1rem;
-      filter: drop-shadow(0 4px 8px rgba(14, 165, 233, 0.2));
     }
     .auth-header h1 {
       font-size: 2rem;
@@ -133,12 +145,54 @@ export class SignupComponent {
     mobile: ['', [Validators.required, Validators.minLength(10)]],
     password: ['', [Validators.required, Validators.minLength(8)]],
   });
+  readonly inlineError = signal<string | null>(null);
+  readonly submitting = signal(false);
 
-  constructor(private fb: FormBuilder, private auth: AuthService) {}
+  constructor(
+    private fb: FormBuilder,
+    private auth: AuthService,
+    private toast: ToastrService,
+    private router: Router,
+    private ngZone: NgZone,
+  ) {}
+
+  private storePendingVerification(res: SignupResponse): void {
+    sessionStorage.setItem(
+      'pendingVerification',
+      JSON.stringify({
+        email: res.email,
+        mobile: res.mobile,
+        resendAttemptsUsed: res.resendAttemptsUsed ?? 0,
+        resendAttemptsRemaining: res.resendAttemptsRemaining ?? 3,
+        resendAvailableAt: res.resendAvailableAt ?? null,
+        maxResendAttemptsPerDay: res.maxResendAttemptsPerDay ?? 3,
+      }),
+    );
+  }
 
   onSubmit() {
     if (this.form.invalid) return;
+    this.inlineError.set(null);
     const { email, password, fullName, mobile } = this.form.getRawValue();
-    this.auth.signup(email, password, fullName, mobile);
+    this.submitting.set(true);
+    this.auth.signup(email, password, fullName, mobile).subscribe({
+      next: (res) => {
+        this.submitting.set(false);
+        this.storePendingVerification(res);
+        this.ngZone.run(() => {
+          this.toast.success(res.message || 'OTP sent to your mobile. Enter it on the next screen.');
+          this.router.navigate(['/verify-otp']);
+        });
+      },
+      error: (err: unknown) => {
+        this.submitting.set(false);
+        const msg =
+          err instanceof HttpErrorResponse
+            ? extractHttpErrorMessage(err)
+            : 'Could not create your account. Please try again.';
+        this.inlineError.set(msg);
+        this.ngZone.run(() => this.toast.error(msg));
+      },
+    });
   }
 }

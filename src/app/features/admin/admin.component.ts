@@ -41,6 +41,26 @@ interface UserRow {
   active?: boolean;
 }
 
+interface FaqAdminRow {
+  id: number;
+  question: string;
+  answer: string;
+  keywords?: string;
+  active: boolean;
+  sortOrder: number;
+}
+
+interface UnmatchedFaqRow {
+  id: number;
+  questionText: string;
+  userId?: number;
+  userFullName?: string;
+  userEmail?: string;
+  status: string;
+  promotedFaqId?: number;
+  createdAt: string;
+}
+
 @Component({
   selector: 'app-admin',
   standalone: true,
@@ -89,6 +109,13 @@ interface UserRow {
             <div class="metric-content">
               <div class="metric-value">₹ {{ (metrics.revenueLast30Days || 0) | number:'1.0-0' }}</div>
               <div class="metric-label">Revenue (30d)</div>
+            </div>
+          </div>
+          <div class="metric-card card">
+            <div class="metric-icon">❓</div>
+            <div class="metric-content">
+              <div class="metric-value">{{ metrics.unmatchedFaqPending ?? 0 }}</div>
+              <div class="metric-label">Unmatched FAQs</div>
             </div>
           </div>
         </div>
@@ -447,6 +474,172 @@ interface UserRow {
             <button type="button" class="btn btn-outline btn-sm" [disabled]="pageAllVisits === 0" (click)="prevVisitsPage()">← Previous</button>
             <span>Page {{ pageAllVisits + 1 }} of {{ allVisitsResponse.totalPages }}</span>
             <button type="button" class="btn btn-outline btn-sm" [disabled]="pageAllVisits >= allVisitsResponse.totalPages - 1" (click)="nextVisitsPage()">Next →</button>
+          </div>
+        </div>
+
+        <div class="pending-section card faq-section">
+          <div class="section-header">
+            <h2>Manage FAQs</h2>
+            <button type="button" class="btn btn-primary" (click)="openFaqForm()">+ Add FAQ</button>
+          </div>
+          <div class="visits-table-wrap" *ngIf="faqs.length && !loadingFaqs">
+            <table class="visits-table">
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>Answer</th>
+                  <th>Keywords</th>
+                  <th>Active</th>
+                  <th>Sort</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let f of faqs">
+                  <td class="faq-cell">{{ f.question }}</td>
+                  <td class="faq-cell">{{ f.answer }}</td>
+                  <td>{{ f.keywords || '—' }}</td>
+                  <td>{{ f.active ? 'Yes' : 'No' }}</td>
+                  <td>{{ f.sortOrder }}</td>
+                  <td>
+                    <button type="button" class="btn btn-outline btn-sm" (click)="openFaqForm(f)">Edit</button>
+                    <button type="button" class="btn btn-outline btn-sm btn-danger" (click)="deleteFaq(f.id)" [disabled]="deletingFaq[f.id]">Delete</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="!faqs.length && !loadingFaqs">
+            <p>No FAQs yet. Add questions and answers for the chatbot.</p>
+          </div>
+          <div class="loading-state" *ngIf="loadingFaqs">
+            <p>Loading FAQs...</p>
+          </div>
+        </div>
+
+        <div class="pending-section card unmatched-faq-section">
+          <div class="section-header">
+            <h2>Out-of-scope Questions</h2>
+            <div class="header-actions">
+              <select class="form-select" [(ngModel)]="unmatchedStatusFilter" (ngModelChange)="loadUnmatchedFaqs()">
+                <option value="PENDING">Pending</option>
+                <option value="RESOLVED">Resolved</option>
+              </select>
+              <span class="badge badge-warning" *ngIf="unmatchedStatusFilter === 'PENDING'">{{ unmatchedFaqs.length }} Pending</span>
+            </div>
+          </div>
+          <div class="visits-table-wrap" *ngIf="unmatchedFaqs.length && !loadingUnmatched">
+            <table class="visits-table">
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>Asked by</th>
+                  <th>When</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let u of unmatchedFaqs">
+                  <td class="faq-cell">{{ u.questionText }}</td>
+                  <td>
+                    <div>{{ u.userFullName || 'Unknown' }}</div>
+                    <div class="muted-email" *ngIf="u.userEmail">{{ u.userEmail }}</div>
+                  </td>
+                  <td>{{ u.createdAt | date:'short' }}</td>
+                  <td><span class="status-badge" [class.status-pending]="u.status === 'PENDING'" [class.status-resolved]="u.status === 'RESOLVED'">{{ u.status }}</span></td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-outline btn-sm"
+                      *ngIf="u.status === 'PENDING'"
+                      (click)="resolveUnmatched(u.id)"
+                      [disabled]="resolvingUnmatched[u.id]"
+                    >{{ resolvingUnmatched[u.id] ? '...' : 'Resolve' }}</button>
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm"
+                      *ngIf="u.status === 'PENDING'"
+                      (click)="openPromoteModal(u)"
+                    >Promote to FAQ</button>
+                    <span *ngIf="u.status === 'RESOLVED' && u.promotedFaqId">Promoted #{{ u.promotedFaqId }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="!unmatchedFaqs.length && !loadingUnmatched">
+            <p>No {{ unmatchedStatusFilter === 'PENDING' ? 'pending' : 'resolved' }} out-of-scope questions.</p>
+          </div>
+          <div class="loading-state" *ngIf="loadingUnmatched">
+            <p>Loading questions...</p>
+          </div>
+        </div>
+
+        <div class="modal-overlay" *ngIf="faqFormOpen" (click)="closeFaqForm()">
+          <div class="modal-content faq-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h3>{{ editingFaqId ? 'Edit FAQ' : 'Add FAQ' }}</h3>
+              <button type="button" class="modal-close" (click)="closeFaqForm()">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Question</label>
+                <input type="text" class="form-input" [(ngModel)]="faqForm.question" name="faqQuestion" />
+              </div>
+              <div class="form-group">
+                <label>Answer</label>
+                <textarea class="form-input faq-textarea" rows="4" [(ngModel)]="faqForm.answer" name="faqAnswer"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Keywords (comma-separated, optional)</label>
+                <input type="text" class="form-input" [(ngModel)]="faqForm.keywords" name="faqKeywords" placeholder="e.g. rent, deposit, visit" />
+              </div>
+              <div class="form-row">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="faqForm.active" name="faqActive" /> Active
+                </label>
+                <div class="form-group sort-group">
+                  <label>Sort order</label>
+                  <input type="number" class="form-input" [(ngModel)]="faqForm.sortOrder" name="faqSortOrder" />
+                </div>
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-outline" (click)="closeFaqForm()">Cancel</button>
+                <button type="button" class="btn btn-primary" (click)="saveFaq()" [disabled]="savingFaq">
+                  {{ savingFaq ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-overlay" *ngIf="promoteModalOpen" (click)="closePromoteModal()">
+          <div class="modal-content faq-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h3>Promote to FAQ</h3>
+              <button type="button" class="modal-close" (click)="closePromoteModal()">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Question</label>
+                <input type="text" class="form-input" name="promoteQuestion" [(ngModel)]="promoteForm.question" readonly />
+              </div>
+              <div class="form-group">
+                <label>Answer</label>
+                <textarea class="form-input faq-textarea" rows="4" [(ngModel)]="promoteForm.answer" name="promoteAnswer" placeholder="Write the answer for this FAQ"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Keywords (optional)</label>
+                <input type="text" class="form-input" [(ngModel)]="promoteForm.keywords" name="promoteKeywords" />
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-outline" (click)="closePromoteModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" (click)="promoteUnmatched()" [disabled]="promoting || !promoteForm.answer.trim()">
+                  {{ promoting ? 'Promoting...' : 'Create FAQ' }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -821,7 +1014,7 @@ interface UserRow {
     .badge-new { background: var(--success-bg); color: var(--success-text); padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; }
     .new-row { background: rgba(16, 185, 129, 0.06); }
     .btn-danger { color: var(--danger, #dc2626); border-color: var(--danger, #dc2626); }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; }
     .modal-content { background: var(--surface); border-radius: var(--radius-lg); max-width: 480px; width: 100%; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-2xl); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
     .modal-header h3 { margin: 0; font-size: 1.25rem; }
@@ -849,10 +1042,71 @@ interface UserRow {
     @media (max-width: 480px) {
       .metrics-grid { grid-template-columns: 1fr; }
     }
+    .faq-cell {
+      max-width: 240px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .muted-email {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+    .faq-section,
+    .unmatched-faq-section {
+      margin-top: 2rem;
+    }
+    .faq-modal.modal-content {
+      max-width: 560px;
+    }
+    .faq-modal .form-group { margin-bottom: 1rem; }
+    .faq-modal label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      font-size: 0.875rem;
+      color: var(--text);
+    }
+    .faq-modal .form-input {
+      width: 100%;
+      background: var(--surface);
+    }
+    .faq-textarea {
+      resize: vertical;
+      min-height: 110px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      line-height: 1.45;
+    }
+    .faq-modal .form-row {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .sort-group { margin-bottom: 0; flex: 1; min-width: 120px; }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-light, var(--border));
+    }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-resolved { background: #d1fae5; color: #065f46; }
   `],
 })
 export class AdminComponent implements OnInit {
-  metrics: { totalProperties?: number; totalViews?: number; pendingProperties?: number; pendingSiteVisits?: number; revenueLast30Days?: number } | null = null;
+  metrics: { totalProperties?: number; totalViews?: number; pendingProperties?: number; pendingSiteVisits?: number; revenueLast30Days?: number; unmatchedFaqPending?: number } | null = null;
   pending: Property[] = [];
   pendingVisits: SiteVisitRow[] = [];
   agents: AgentRow[] = [];
@@ -892,6 +1146,28 @@ export class AdminComponent implements OnInit {
   deletingCarousel: Record<number, boolean> = {};
   reorderingCarousel: Record<number, boolean> = {};
   newCarousel = { imageUrl: '', linkUrl: '', altText: '' };
+
+  faqs: FaqAdminRow[] = [];
+  loadingFaqs = false;
+  faqFormOpen = false;
+  editingFaqId: number | null = null;
+  savingFaq = false;
+  deletingFaq: Record<number, boolean> = {};
+  faqForm: { question: string; answer: string; keywords: string; active: boolean; sortOrder: number } = {
+    question: '',
+    answer: '',
+    keywords: '',
+    active: true,
+    sortOrder: 0,
+  };
+  unmatchedFaqs: UnmatchedFaqRow[] = [];
+  loadingUnmatched = false;
+  unmatchedStatusFilter: 'PENDING' | 'RESOLVED' = 'PENDING';
+  resolvingUnmatched: Record<number, boolean> = {};
+  promoteModalOpen = false;
+  promoting = false;
+  promoteTargetId: number | null = null;
+  promoteForm = { question: '', answer: '', keywords: '' };
 
   constructor(
     private api: ApiService,
@@ -934,6 +1210,8 @@ export class AdminComponent implements OnInit {
     this.loadAllProperties();
     this.loadAllUsers();
     this.loadCarouselSlides();
+    this.loadFaqs();
+    this.loadUnmatchedFaqs();
   }
 
   isNewProperty(createdAt: string | undefined): boolean {
@@ -1382,6 +1660,205 @@ export class AdminComponent implements OnInit {
       error: (e) => {
         this.deletingCarousel[slide.id] = false;
         this.toast.error(e.error?.message || 'Failed to delete slide');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  loadFaqs() {
+    this.loadingFaqs = true;
+    this.api.get<FaqAdminRow[]>('/admin/faqs').subscribe({
+      next: (list) => {
+        this.ngZone.run(() => {
+          this.faqs = Array.isArray(list) ? list : [];
+          this.loadingFaqs = false;
+          this.cdr.detectChanges();
+        });
+      },
+      error: () => {
+        this.ngZone.run(() => {
+          this.loadingFaqs = false;
+          this.toast.error('Failed to load FAQs');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  openFaqForm(faq?: FaqAdminRow) {
+    if (faq) {
+      this.editingFaqId = faq.id;
+      this.faqForm = {
+        question: faq.question,
+        answer: faq.answer,
+        keywords: faq.keywords || '',
+        active: faq.active,
+        sortOrder: faq.sortOrder ?? 0,
+      };
+    } else {
+      this.editingFaqId = null;
+      this.faqForm = { question: '', answer: '', keywords: '', active: true, sortOrder: 0 };
+    }
+    this.faqFormOpen = true;
+  }
+
+  closeFaqForm() {
+    this.faqFormOpen = false;
+    this.editingFaqId = null;
+    this.savingFaq = false;
+  }
+
+  saveFaq() {
+    if (!this.faqForm.question.trim() || !this.faqForm.answer.trim()) {
+      this.toast.error('Question and answer are required');
+      return;
+    }
+    this.savingFaq = true;
+    this.cdr.detectChanges();
+    const body = {
+      question: this.faqForm.question.trim(),
+      answer: this.faqForm.answer.trim(),
+      keywords: this.faqForm.keywords?.trim() || null,
+      active: this.faqForm.active,
+      sortOrder: this.faqForm.sortOrder ?? 0,
+    };
+    const editingId = this.editingFaqId;
+    const req$ = editingId
+      ? this.api.put<FaqAdminRow>('/admin/faqs/' + editingId, body)
+      : this.api.post<FaqAdminRow>('/admin/faqs', body);
+    req$.subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.savingFaq = false;
+          this.closeFaqForm();
+          this.toast.success(editingId ? 'FAQ updated' : 'FAQ created');
+          this.loadFaqs();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.savingFaq = false;
+          this.toast.error(e.error?.message || 'Failed to save FAQ');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  deleteFaq(id: number) {
+    if (!confirm('Delete this FAQ?')) return;
+    this.deletingFaq[id] = true;
+    this.cdr.detectChanges();
+    this.api.delete('/admin/faqs/' + id).subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.deletingFaq[id] = false;
+          this.toast.success('FAQ deleted');
+          this.loadFaqs();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.deletingFaq[id] = false;
+          this.toast.error(e.error?.message || 'Delete failed');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  loadUnmatchedFaqs() {
+    this.loadingUnmatched = true;
+    this.api.get<UnmatchedFaqRow[]>('/admin/faqs/unmatched', { status: this.unmatchedStatusFilter }).subscribe({
+      next: (list) => {
+        this.ngZone.run(() => {
+          this.unmatchedFaqs = Array.isArray(list) ? list : [];
+          this.loadingUnmatched = false;
+          this.cdr.detectChanges();
+        });
+      },
+      error: () => {
+        this.ngZone.run(() => {
+          this.loadingUnmatched = false;
+          this.toast.error('Failed to load out-of-scope questions');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  resolveUnmatched(id: number) {
+    this.resolvingUnmatched[id] = true;
+    this.cdr.detectChanges();
+    this.api.put<UnmatchedFaqRow>('/admin/faqs/unmatched/' + id + '/resolve', {}).subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.resolvingUnmatched[id] = false;
+          this.toast.success('Marked as resolved');
+          this.loadUnmatchedFaqs();
+          this.refreshFaqMetric();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.resolvingUnmatched[id] = false;
+          this.toast.error(e.error?.message || 'Failed to resolve');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  openPromoteModal(u: UnmatchedFaqRow) {
+    this.promoteTargetId = u.id;
+    this.promoteForm = { question: u.questionText, answer: '', keywords: '' };
+    this.promoteModalOpen = true;
+  }
+
+  closePromoteModal() {
+    this.promoteModalOpen = false;
+    this.promoteTargetId = null;
+    this.promoting = false;
+  }
+
+  promoteUnmatched() {
+    if (!this.promoteTargetId || !this.promoteForm.answer.trim()) return;
+    this.promoting = true;
+    this.cdr.detectChanges();
+    this.api.post<UnmatchedFaqRow>('/admin/faqs/unmatched/' + this.promoteTargetId + '/promote', {
+      answer: this.promoteForm.answer.trim(),
+      keywords: this.promoteForm.keywords?.trim() || null,
+      active: true,
+      sortOrder: 0,
+    }).subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          this.promoting = false;
+          this.closePromoteModal();
+          this.toast.success('Promoted to FAQ');
+          this.loadFaqs();
+          this.loadUnmatchedFaqs();
+          this.refreshFaqMetric();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.promoting = false;
+          this.toast.error(e.error?.message || 'Failed to promote');
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  private refreshFaqMetric() {
+    this.api.get<Record<string, number>>('/admin/metrics').subscribe({
+      next: (m) => {
+        this.metrics = m as typeof this.metrics;
         this.cdr.markForCheck();
       },
     });

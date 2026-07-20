@@ -9,6 +9,7 @@ import { Property } from '../../core/models/property.model';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 import { PropertyCardComponent } from '../../shared/property-card/property-card.component';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
+import { PropertyGrowthCalculatorComponent } from '../../shared/property-growth-calculator/property-growth-calculator.component';
 import { CarouselModule } from 'ngx-bootstrap/carousel';
 
 interface HomeCarouselSlide {
@@ -22,7 +23,7 @@ interface HomeCarouselSlide {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, PropertyCardComponent, SkeletonLoaderComponent, CarouselModule],
+  imports: [CommonModule, RouterLink, FormsModule, PropertyCardComponent, SkeletonLoaderComponent, PropertyGrowthCalculatorComponent, CarouselModule],
   template: `
     <section class="home-carousel-wrap" aria-label="Featured banners">
       <carousel
@@ -203,9 +204,8 @@ interface HomeCarouselSlide {
     </section>
 
 
-<div class="chart">
-<img src="assets/images/chart.png" class="img-fluid">
-</div>
+    <app-property-growth-calculator />
+
     <section class="featured-section">
       <div class="container">
         <div class="section-header">
@@ -695,12 +695,6 @@ interface HomeCarouselSlide {
 
 .hidepopup{
 	display:none;	
-}
-.chart{
-text-align: center;
-}
-.chart img{
-width : 80%;
 }
     .empty-state {
       text-align: center;

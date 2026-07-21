@@ -187,6 +187,10 @@ export class AuthService {
     return this.api.post<{ message: string }>('/auth/change-password', { otp, newPassword }, this.skipGlobalErrorToast);
   }
 
+  deleteAccount(password: string) {
+    return this.api.delete<void>('/users/me', { password });
+  }
+
   updateLocalUser(user: User): void {
     this.userSignal.set(user);
     localStorage.setItem('user', JSON.stringify(user));

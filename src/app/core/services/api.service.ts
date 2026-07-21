@@ -39,7 +39,10 @@ export class ApiService {
     return this.http.put<T>(`${this.api}${path}`, body, context ? { context } : {});
   }
 
-  delete<T>(path: string): Observable<T> {
+  delete<T>(path: string, body?: unknown): Observable<T> {
+    if (body !== undefined) {
+      return this.http.request<T>('DELETE', `${this.api}${path}`, { body });
+    }
     return this.http.delete<T>(`${this.api}${path}`);
   }
 

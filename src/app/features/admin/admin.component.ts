@@ -10,6 +10,12 @@ import { Property, PageResponse } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import {
+  PushCampaignDto,
+  PushLinkTarget,
+  PushNotificationService,
+  PushTargetRole,
+} from '../../core/services/push-notification.service';
 
 interface SiteVisitRow {
   id: number;
@@ -680,6 +686,84 @@ interface MarketSnapshotAdminRow {
           </div>
         </div>
 
+        <div class="pending-section card push-section">
+          <div class="section-header">
+            <h2>Push Notifications (Mobile)</h2>
+            <button type="button" class="btn btn-outline btn-sm" (click)="loadPushCampaigns()">Refresh history</button>
+          </div>
+          <p class="carousel-hint">
+            Send a push notification to users who have the 1Guntha mobile app installed and granted notification permission.
+            For in-app links use paths like <code>/property/123</code> or <code>/blog/my-post</code>. External URLs open in the device browser.
+          </p>
+          <div class="push-form-grid">
+            <div class="form-group">
+              <label>Title *</label>
+              <input type="text" class="form-input" [(ngModel)]="pushForm.title" name="pushTitle" maxlength="255" />
+            </div>
+            <div class="form-group">
+              <label>Message *</label>
+              <textarea class="form-input faq-textarea" rows="3" [(ngModel)]="pushForm.body" name="pushBody" maxlength="2000"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Image URL (optional, HTTPS)</label>
+              <input type="url" class="form-input" [(ngModel)]="pushForm.imageUrl" name="pushImageUrl" placeholder="https://..." />
+            </div>
+            <div class="form-group">
+              <label>Link URL (optional)</label>
+              <input type="text" class="form-input" [(ngModel)]="pushForm.linkUrl" name="pushLinkUrl" placeholder="/property/42 or https://example.com" />
+            </div>
+            <div class="form-group">
+              <label>Link behavior</label>
+              <select class="form-select" [(ngModel)]="pushForm.linkTarget" name="pushLinkTarget">
+                <option value="APP">Open in app</option>
+                <option value="EXTERNAL">Open in browser</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Target audience</label>
+              <select class="form-select" [(ngModel)]="pushForm.targetRole" name="pushTargetRole">
+                <option value="ALL">All mobile users</option>
+                <option value="USER">Users only</option>
+                <option value="AGENT">Agents only</option>
+              </select>
+            </div>
+          </div>
+          <div class="header-actions" style="margin-top: 1rem;">
+            <button type="button" class="btn btn-primary" (click)="sendPushNotification()" [disabled]="sendingPush || !pushForm.title.trim() || !pushForm.body.trim()">
+              {{ sendingPush ? 'Sending...' : 'Send push notification' }}
+            </button>
+          </div>
+
+          <div class="snapshot-panel" *ngIf="pushCampaigns.length || loadingPushCampaigns">
+            <div class="section-header">
+              <h3>Recent campaigns</h3>
+            </div>
+            <div class="visits-table-wrap" *ngIf="pushCampaigns.length && !loadingPushCampaigns">
+              <table class="visits-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Target</th>
+                    <th>Sent</th>
+                    <th>Failed</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let c of pushCampaigns">
+                    <td>{{ c.title }}</td>
+                    <td>{{ c.targetRole }}</td>
+                    <td>{{ c.sentCount }}</td>
+                    <td>{{ c.failedCount }}</td>
+                    <td>{{ c.createdAt | date:'medium' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="loading-state" *ngIf="loadingPushCampaigns"><p>Loading campaigns...</p></div>
+          </div>
+        </div>
+
         <div class="modal-overlay" *ngIf="areaFormOpen" (click)="closeAreaForm()">
           <div class="modal-content faq-modal" (click)="$event.stopPropagation()">
             <div class="modal-header">
@@ -1239,8 +1323,14 @@ interface MarketSnapshotAdminRow {
     }
     .faq-section,
     .unmatched-faq-section,
-    .market-stats-section {
+    .market-stats-section,
+    .push-section {
       margin-top: 2rem;
+    }
+    .push-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
     }
     .row-selected {
       background: rgba(14, 165, 233, 0.08);
@@ -1397,12 +1487,25 @@ export class AdminComponent implements OnInit {
     rentalYieldPct: number | null;
   } = { snapshotDate: '', priceIndex: null, avgPricePerSqft: null, yoyGrowthPct: null, rentalYieldPct: null };
 
+  pushForm: {
+    title: string;
+    body: string;
+    imageUrl: string;
+    linkUrl: string;
+    linkTarget: PushLinkTarget;
+    targetRole: PushTargetRole;
+  } = { title: '', body: '', imageUrl: '', linkUrl: '', linkTarget: 'APP', targetRole: 'ALL' };
+  pushCampaigns: PushCampaignDto[] = [];
+  loadingPushCampaigns = false;
+  sendingPush = false;
+
   constructor(
     private api: ApiService,
     private config: ConfigService,
     private toast: ToastrService,
     private cdr: ChangeDetectorRef,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private pushNotifications: PushNotificationService
   ) {}
 
   ngOnInit() {
@@ -1441,6 +1544,53 @@ export class AdminComponent implements OnInit {
     this.loadFaqs();
     this.loadUnmatchedFaqs();
     this.loadMarketAreas();
+    this.loadPushCampaigns();
+  }
+
+  loadPushCampaigns() {
+    this.loadingPushCampaigns = true;
+    this.pushNotifications.list(0, 10).subscribe({
+      next: (res) => {
+        this.pushCampaigns = res.content ?? [];
+        this.loadingPushCampaigns = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loadingPushCampaigns = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  sendPushNotification() {
+    if (!this.pushForm.title.trim() || !this.pushForm.body.trim()) return;
+    if (!confirm('Send this push notification to mobile users now?')) return;
+    this.sendingPush = true;
+    this.pushNotifications.send({
+      title: this.pushForm.title.trim(),
+      body: this.pushForm.body.trim(),
+      imageUrl: this.pushForm.imageUrl.trim() || undefined,
+      linkUrl: this.pushForm.linkUrl.trim() || undefined,
+      linkTarget: this.pushForm.linkTarget,
+      targetRole: this.pushForm.targetRole,
+    }).subscribe({
+      next: (res) => {
+        this.ngZone.run(() => {
+          this.sendingPush = false;
+          this.toast.success(res.message || `Sent to ${res.sentCount} device(s)`);
+          this.pushForm = { title: '', body: '', imageUrl: '', linkUrl: '', linkTarget: 'APP', targetRole: 'ALL' };
+          this.loadPushCampaigns();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (e) => {
+        this.ngZone.run(() => {
+          this.sendingPush = false;
+          this.toast.error(e.error?.message || 'Failed to send push notification');
+          this.cdr.detectChanges();
+        });
+      },
+    });
   }
 
   isNewProperty(createdAt: string | undefined): boolean {

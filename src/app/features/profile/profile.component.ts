@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService, User } from '../../core/services/auth.service';
@@ -112,6 +112,27 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
               </button>
             </form>
           </div>
+
+          @if (auth.getRole() !== 'ADMIN') {
+            <div class="card profile-card danger-card">
+              <h2>Delete account</h2>
+              <p class="section-desc">Permanently delete your account and all associated data. This action cannot be undone.</p>
+
+              @if (deleteInlineError()) {
+                <div class="inline-error" role="alert">{{ deleteInlineError() }}</div>
+              }
+
+              <form [formGroup]="deleteForm" (ngSubmit)="confirmDeleteAccount()">
+                <div class="form-group">
+                  <label>Confirm your password</label>
+                  <input type="password" formControlName="password" placeholder="Enter your password" />
+                </div>
+                <button type="submit" class="btn btn-danger" [disabled]="deleteForm.invalid || deletingAccount()">
+                  {{ deletingAccount() ? 'Deleting…' : 'Delete my account' }}
+                </button>
+              </form>
+            </div>
+          }
         </div>
       </div>
     </div>
@@ -124,6 +145,10 @@ import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
     .profile-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
     @media (min-width: 900px) { .profile-grid { grid-template-columns: 1.2fr 1fr; } }
     .profile-card { padding: 1.75rem; }
+    .danger-card { border: 1px solid rgba(239, 68, 68, 0.35); }
+    .danger-card h2 { color: var(--danger-text-strong, #b91c1c); }
+    .btn-danger { background: var(--danger, #dc2626); color: white; border: none; }
+    .btn-danger:hover:not(:disabled) { filter: brightness(0.95); }
     .profile-card h2 { margin: 0 0 1.25rem; font-size: 1.25rem; }
     .section-desc { color: var(--text-muted); margin: -0.75rem 0 1rem; font-size: 0.9375rem; }
     .avatar-section { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
@@ -143,8 +168,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
   readonly uploadingPhoto = signal(false);
   readonly sendingPasswordOtp = signal(false);
   readonly changingPassword = signal(false);
+  readonly deletingAccount = signal(false);
   readonly profileImagePreview = signal<string | null>(null);
   readonly passwordInlineError = signal<string | null>(null);
+  readonly deleteInlineError = signal<string | null>(null);
   readonly passwordOtpMaskedMobile = signal('');
   readonly passwordOtpCountdown = signal(0);
   readonly canResendPasswordOtp = signal(true);
@@ -171,12 +198,17 @@ export class ProfileComponent implements OnInit, OnDestroy {
     }},
   );
 
+  deleteForm = this.fb.nonNullable.group({
+    password: ['', [Validators.required, Validators.minLength(6)]],
+  });
+
   constructor(
     private fb: FormBuilder,
-    private auth: AuthService,
+    public auth: AuthService,
     private api: ApiService,
     private config: ConfigService,
     private toast: ToastrService,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -295,6 +327,29 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.changingPassword.set(false);
         const msg = err instanceof HttpErrorResponse ? extractHttpErrorMessage(err) : 'Password change failed';
         this.passwordInlineError.set(msg);
+        this.toast.error(msg);
+      },
+    });
+  }
+
+  confirmDeleteAccount() {
+    if (this.deleteForm.invalid) return;
+    const { password } = this.deleteForm.getRawValue();
+    if (!confirm('Permanently delete your account? This cannot be undone.')) return;
+
+    this.deleteInlineError.set(null);
+    this.deletingAccount.set(true);
+    this.auth.deleteAccount(password).subscribe({
+      next: () => {
+        this.deletingAccount.set(false);
+        this.toast.success('Your account has been deleted.');
+        this.auth.clearSession();
+        this.router.navigate(['/']);
+      },
+      error: (err: unknown) => {
+        this.deletingAccount.set(false);
+        const msg = err instanceof HttpErrorResponse ? extractHttpErrorMessage(err) : 'Account deletion failed';
+        this.deleteInlineError.set(msg);
         this.toast.error(msg);
       },
     });

@@ -346,6 +346,7 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
   private refresh$ = new Subject<void>();
   private sub?: Subscription;
   private cityAreaId: number | null = null;
+  private cityAreaByName = new Map<string, number>();
 
   constructor(private marketStats: MarketStatsService) {}
 
@@ -384,17 +385,17 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
         if (res) this.applyProjection(res);
       });
 
-    // Default to Maharashtra / Mumbai if present
-    if (this.states.includes('Maharashtra')) {
-      this.selectedState = 'Maharashtra';
-      this.onStateChange();
-      if (this.cities.includes('Mumbai')) {
-        this.selectedCity = 'Mumbai';
-        this.onCityChange();
-      }
-    } else {
-      this.refresh$.next();
-    }
+    this.marketStats.listAreas({ level: 'STATE' }).subscribe({
+      next: (areas) => {
+        const apiStates = (areas || []).filter((a) => a.active).map((a) => a.name);
+        this.states = apiStates.length ? apiStates : getStateNames();
+        this.applyDefaultSelection();
+      },
+      error: () => {
+        this.states = getStateNames();
+        this.applyDefaultSelection();
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -407,13 +408,44 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
     this.localities = [];
     this.selectedLocationId = null;
     this.cityAreaId = null;
-    this.refresh$.next();
+    this.cityAreaByName.clear();
+    if (!this.selectedState) {
+      this.refresh$.next();
+      return;
+    }
+    this.marketStats.listAreas({ state: this.selectedState, level: 'CITY' }).subscribe({
+      next: (areas) => {
+        const apiCities = (areas || []).filter((a) => a.active);
+        if (apiCities.length) {
+          this.cities = apiCities.map((c) => c.name);
+          this.cityAreaByName.clear();
+          apiCities.forEach((c) => this.cityAreaByName.set(c.name.toLowerCase(), c.id));
+        } else if (!this.cities.length) {
+          this.cities = getCitiesForState(this.selectedState);
+        }
+        const preferred = this.cities.includes('Mumbai')
+          ? 'Mumbai'
+          : this.cities.includes('New Delhi')
+            ? 'New Delhi'
+            : this.cities[0] || '';
+        if (preferred) {
+          this.selectedCity = preferred;
+          this.onCityChange();
+        } else {
+          this.refresh$.next();
+        }
+      },
+      error: () => {
+        this.cities = getCitiesForState(this.selectedState);
+        this.refresh$.next();
+      },
+    });
   }
 
   onCityChange(): void {
     this.localities = [];
     this.selectedLocationId = null;
-    this.cityAreaId = null;
+    this.cityAreaId = this.cityAreaByName.get(this.selectedCity.toLowerCase()) ?? null;
     if (!this.selectedState || !this.selectedCity) {
       this.refresh$.next();
       return;
@@ -426,19 +458,22 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
           if (this.localities.length) {
             this.selectedLocationId = this.localities[0].id;
           }
-          // Also try to resolve city-level area for fallback
-          this.marketStats
-            .listAreas({ state: this.selectedState, level: 'CITY' })
-            .subscribe({
-              next: (cities) => {
-                const match = (cities || []).find(
-                  (c) => c.name.toLowerCase() === this.selectedCity.toLowerCase(),
-                );
-                this.cityAreaId = match?.id ?? null;
-                this.refresh$.next();
-              },
-              error: () => this.refresh$.next(),
-            });
+          if (!this.cityAreaId) {
+            this.marketStats
+              .listAreas({ state: this.selectedState, level: 'CITY' })
+              .subscribe({
+                next: (cities) => {
+                  const match = (cities || []).find(
+                    (c) => c.name.toLowerCase() === this.selectedCity.toLowerCase(),
+                  );
+                  this.cityAreaId = match?.id ?? null;
+                  this.refresh$.next();
+                },
+                error: () => this.refresh$.next(),
+              });
+          } else {
+            this.refresh$.next();
+          }
         },
         error: () => this.refresh$.next(),
       });
@@ -493,6 +528,20 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
       user: Number(p.user),
       forecast: !!p.forecast,
     })));
+  }
+
+  private applyDefaultSelection(): void {
+    if (this.states.includes('Maharashtra')) {
+      this.selectedState = 'Maharashtra';
+      this.onStateChange();
+      return;
+    }
+    if (this.states.length) {
+      this.selectedState = this.states[0];
+      this.onStateChange();
+      return;
+    }
+    this.refresh$.next();
   }
 
   private userRateTouched(): boolean {

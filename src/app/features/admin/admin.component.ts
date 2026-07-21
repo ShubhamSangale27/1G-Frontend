@@ -650,7 +650,7 @@ interface MarketSnapshotAdminRow {
 
           <div class="snapshot-panel" *ngIf="selectedMarketAreaId">
             <div class="section-header">
-              <h3>Snapshots for area #{{ selectedMarketAreaId }}</h3>
+              <h3>Snapshots for {{ selectedMarketAreaLabel }}</h3>
               <button type="button" class="btn btn-primary btn-sm" (click)="openSnapshotForm()">+ Add Snapshot</button>
             </div>
             <div class="visits-table-wrap" *ngIf="marketSnapshots.length && !loadingMarketSnapshots">
@@ -773,7 +773,7 @@ interface MarketSnapshotAdminRow {
             <div class="modal-body">
               <div class="form-group">
                 <label>Level</label>
-                <select class="form-select" [(ngModel)]="areaForm.level" name="areaLevel">
+                <select class="form-select" [(ngModel)]="areaForm.level" name="areaLevel" (ngModelChange)="onAreaLevelChange()">
                   <option value="STATE">STATE</option>
                   <option value="CITY">CITY</option>
                   <option value="LOCALITY">LOCALITY</option>
@@ -783,20 +783,29 @@ interface MarketSnapshotAdminRow {
                 <label>Name</label>
                 <input type="text" class="form-input" [(ngModel)]="areaForm.name" name="areaName" />
               </div>
-              <div class="form-group">
-                <label>Parent ID (required for CITY/LOCALITY)</label>
-                <input type="number" class="form-input" [(ngModel)]="areaForm.parentId" name="areaParentId" />
+              <div class="form-group" *ngIf="areaForm.level !== 'STATE'">
+                <label>{{ areaForm.level === 'CITY' ? 'State parent' : 'City parent' }}</label>
+                <select class="form-select" [(ngModel)]="areaForm.parentId" name="areaParentId" (ngModelChange)="onAreaParentChange()">
+                  <option [ngValue]="null">Select parent…</option>
+                  <option *ngFor="let p of parentAreaOptions" [ngValue]="p.id">{{ p.name }} ({{ p.level }})</option>
+                </select>
               </div>
               <div class="form-group">
-                <label>State name (optional override)</label>
-                <input type="text" class="form-input" [(ngModel)]="areaForm.stateName" name="areaStateName" />
+                <label>State name</label>
+                <input type="text" class="form-input" [(ngModel)]="areaForm.stateName" name="areaStateName" [readonly]="areaForm.level === 'STATE'" />
+                <p class="form-hint" *ngIf="areaForm.level === 'STATE'">Auto-filled from name for STATE rows.</p>
+              </div>
+              <div class="form-group" *ngIf="areaForm.level !== 'STATE'">
+                <label>City name</label>
+                <input type="text" class="form-input" [(ngModel)]="areaForm.cityName" name="areaCityName" [readonly]="areaForm.level === 'CITY'" />
+                <p class="form-hint" *ngIf="areaForm.level === 'CITY'">Auto-filled from name for CITY rows.</p>
               </div>
               <div class="form-group">
-                <label>City name (optional override)</label>
-                <input type="text" class="form-input" [(ngModel)]="areaForm.cityName" name="areaCityName" />
+                <label>Sort order</label>
+                <input type="number" class="form-input" [(ngModel)]="areaForm.sortOrder" name="areaSortOrder" min="0" />
               </div>
               <label class="checkbox-label">
-                <input type="checkbox" [(ngModel)]="areaForm.active" name="areaActive" /> Active
+                <input type="checkbox" [(ngModel)]="areaForm.active" name="areaActive" /> Active (shown on public growth calculator)
               </label>
               <div class="modal-actions">
                 <button type="button" class="btn btn-outline" (click)="closeAreaForm()">Cancel</button>
@@ -1348,6 +1357,7 @@ interface MarketSnapshotAdminRow {
       max-width: 560px;
     }
     .faq-modal .form-group { margin-bottom: 1rem; }
+    .form-hint { margin: 0.25rem 0 0; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
     .faq-modal label {
       display: block;
       font-weight: 600;
@@ -1471,7 +1481,8 @@ export class AdminComponent implements OnInit {
     stateName: string;
     cityName: string;
     active: boolean;
-  } = { level: 'LOCALITY', name: '', parentId: null, stateName: '', cityName: '', active: true };
+    sortOrder: number;
+  } = { level: 'LOCALITY', name: '', parentId: null, stateName: '', cityName: '', active: true, sortOrder: 0 };
   selectedMarketAreaId: number | null = null;
   marketSnapshots: MarketSnapshotAdminRow[] = [];
   loadingMarketSnapshots = false;
@@ -2292,8 +2303,60 @@ export class AdminComponent implements OnInit {
       stateName: a?.stateName || '',
       cityName: a?.cityName || '',
       active: a?.active ?? true,
+      sortOrder: a?.sortOrder ?? 0,
     };
+    if (!a) {
+      this.syncAreaNamesFromParent();
+    }
     this.areaFormOpen = true;
+  }
+
+  get parentAreaOptions(): MarketAreaAdminRow[] {
+    if (this.areaForm.level === 'CITY') {
+      return this.marketAreas.filter((row) => row.level === 'STATE');
+    }
+    if (this.areaForm.level === 'LOCALITY') {
+      return this.marketAreas.filter((row) => row.level === 'CITY');
+    }
+    return [];
+  }
+
+  get selectedMarketAreaLabel(): string {
+    if (!this.selectedMarketAreaId) return '';
+    const area = this.marketAreas.find((a) => a.id === this.selectedMarketAreaId);
+    return area ? `${area.name} (${area.level})` : `area #${this.selectedMarketAreaId}`;
+  }
+
+  onAreaLevelChange(): void {
+    this.areaForm.parentId = null;
+    this.syncAreaNamesFromParent();
+  }
+
+  onAreaParentChange(): void {
+    this.syncAreaNamesFromParent();
+  }
+
+  private syncAreaNamesFromParent(): void {
+    if (this.areaForm.level === 'STATE') {
+      this.areaForm.parentId = null;
+      if (this.areaForm.name.trim()) {
+        this.areaForm.stateName = this.areaForm.name.trim();
+      }
+      this.areaForm.cityName = '';
+      return;
+    }
+    const parent = this.marketAreas.find((a) => a.id === this.areaForm.parentId);
+    if (this.areaForm.level === 'CITY') {
+      this.areaForm.stateName = parent?.stateName || parent?.name || this.areaForm.stateName;
+      if (this.areaForm.name.trim()) {
+        this.areaForm.cityName = this.areaForm.name.trim();
+      }
+      return;
+    }
+    if (this.areaForm.level === 'LOCALITY' && parent) {
+      this.areaForm.stateName = parent.stateName || this.areaForm.stateName;
+      this.areaForm.cityName = parent.cityName || parent.name || this.areaForm.cityName;
+    }
   }
 
   closeAreaForm() {
@@ -2306,14 +2369,24 @@ export class AdminComponent implements OnInit {
       this.toast.error('Name is required');
       return;
     }
+    this.syncAreaNamesFromParent();
+    if (this.areaForm.level === 'CITY' && !this.areaForm.parentId) {
+      this.toast.error('Select a state parent for CITY areas');
+      return;
+    }
+    if (this.areaForm.level === 'LOCALITY' && !this.areaForm.parentId) {
+      this.toast.error('Select a city parent for LOCALITY areas');
+      return;
+    }
     this.savingArea = true;
     const body = {
       level: this.areaForm.level,
       name: this.areaForm.name.trim(),
-      parentId: this.areaForm.parentId,
-      stateName: this.areaForm.stateName || null,
-      cityName: this.areaForm.cityName || null,
+      parentId: this.areaForm.level === 'STATE' ? null : this.areaForm.parentId,
+      stateName: this.areaForm.stateName?.trim() || null,
+      cityName: this.areaForm.cityName?.trim() || null,
       active: this.areaForm.active,
+      sortOrder: this.areaForm.sortOrder ?? 0,
     };
     const req = this.editingAreaId
       ? this.api.put<MarketAreaAdminRow>('/admin/market-stats/areas/' + this.editingAreaId, body)

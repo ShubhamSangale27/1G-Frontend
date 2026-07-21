@@ -11,7 +11,24 @@ describe('PropertyGrowthCalculatorComponent', () => {
 
   beforeEach(async () => {
     marketStats = jasmine.createSpyObj('MarketStatsService', ['listAreas', 'getStats', 'project']);
-    marketStats.listAreas.and.returnValue(of([]));
+    marketStats.listAreas.and.callFake((params: { level?: string; state?: string; city?: string }) => {
+      if (params?.level === 'STATE') {
+        return of([
+          { id: 1, parentId: null, level: 'STATE', name: 'Maharashtra', active: true, sortOrder: 0 },
+        ]);
+      }
+      if (params?.level === 'CITY') {
+        return of([
+          { id: 2, parentId: 1, level: 'CITY', name: 'Mumbai', stateName: 'Maharashtra', cityName: 'Mumbai', active: true, sortOrder: 0 },
+        ]);
+      }
+      if (params?.level === 'LOCALITY') {
+        return of([
+          { id: 9, parentId: 2, level: 'LOCALITY', name: 'Andheri', stateName: 'Maharashtra', cityName: 'Mumbai', active: true, sortOrder: 0 },
+        ]);
+      }
+      return of([]);
+    });
     marketStats.project.and.returnValue(
       of({
         market: {
@@ -46,20 +63,22 @@ describe('PropertyGrowthCalculatorComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('loads states and defaults range to 5Y', () => {
+  it('loads states and defaults range to 5Y', fakeAsync(() => {
     fixture.detectChanges();
+    tick();
     expect(component.states.length).toBeGreaterThan(0);
     expect(component.selectedRange).toBe('5Y');
-  });
+  }));
 
-  it('cascades cities when state changes', () => {
+  it('cascades cities when state changes', fakeAsync(() => {
     fixture.detectChanges();
+    tick();
     component.selectedState = 'Maharashtra';
     component.onStateChange();
+    tick();
     expect(component.cities.length).toBeGreaterThan(0);
-    expect(component.selectedCity).toBe('');
-    expect(component.localities.length).toBe(0);
-  });
+    expect(component.selectedCity).toBe('Mumbai');
+  }));
 
   it('switches range and requests projection', fakeAsync(() => {
     fixture.detectChanges();

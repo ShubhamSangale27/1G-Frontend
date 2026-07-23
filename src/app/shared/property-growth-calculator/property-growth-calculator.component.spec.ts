@@ -102,6 +102,28 @@ describe('PropertyGrowthCalculatorComponent', () => {
     expect(args.localityId).toBe(9);
   }));
 
+  it('shows snapshot-based message when stats available', fakeAsync(() => {
+    marketStats.project.and.returnValue(
+      of({
+        ...projectionResponse,
+        market: {
+          ...projectionResponse.market,
+          dataAvailable: true,
+          message: 'Based on 2 admin snapshot(s) from 2021-03-31 to 2026-03-31.',
+        },
+        points: [
+          { year: 0, regional: 1000000, user: 1000000, forecast: false },
+          { year: 3, regional: 1300000, user: 1200000, forecast: false },
+          { year: 10, regional: 1800000, user: 2000000, forecast: true },
+        ],
+      }),
+    );
+    fixture.detectChanges();
+    tick(250);
+    expect(component.dataMessage).toContain('admin snapshot');
+    expect(component.regionalPolyline.length).toBeGreaterThan(0);
+  }));
+
   it('shows benchmark message when stats unavailable', fakeAsync(() => {
     marketStats.project.and.returnValue(
       of({

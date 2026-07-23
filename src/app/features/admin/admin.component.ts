@@ -815,7 +815,8 @@ interface MarketSnapshotAdminRow {
             <div class="modal-body">
               <div class="form-group">
                 <label>Date</label>
-                <input type="date" class="form-input" [(ngModel)]="snapshotForm.snapshotDate" name="snapDate" />
+                <input type="date" class="form-input" [(ngModel)]="snapshotForm.snapshotDate" name="snapDate" [max]="maxSnapshotDate" />
+                <p class="form-hint">Past dates only — snapshots record historical market data.</p>
               </div>
               <div class="form-group">
                 <label>Price index</label>
@@ -2450,13 +2451,19 @@ export class AdminComponent implements OnInit {
   openSnapshotForm(s?: MarketSnapshotAdminRow) {
     this.editingSnapshotId = s?.id ?? null;
     this.snapshotForm = {
-      snapshotDate: s?.snapshotDate || new Date().toISOString().slice(0, 10),
+      snapshotDate: s?.snapshotDate || this.maxSnapshotDate,
       priceIndex: s?.priceIndex ?? 100,
       avgPricePerSqft: s?.avgPricePerSqft ?? null,
       yoyGrowthPct: s?.yoyGrowthPct ?? null,
       rentalYieldPct: s?.rentalYieldPct ?? null,
     };
     this.snapshotFormOpen = true;
+  }
+
+  get maxSnapshotDate(): string {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
   }
 
   closeSnapshotForm() {
@@ -2467,6 +2474,11 @@ export class AdminComponent implements OnInit {
   saveSnapshot() {
     if (!this.selectedMarketAreaId || this.snapshotForm.priceIndex == null || !this.snapshotForm.snapshotDate) {
       this.toast.error('Date and price index are required');
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    if (this.snapshotForm.snapshotDate >= today) {
+      this.toast.error('Snapshot date must be in the past (before today)');
       return;
     }
     this.savingSnapshot = true;

@@ -157,11 +157,12 @@ export const FALLBACK_CAGR = 8.5;
             </div>
 
             <p class="assumption-note" *ngIf="!dataMessage">
-              Historical line uses admin snapshots when a locality is selected.
-              Without a locality, city/state market-average growth applies.
+              Historical line uses admin snapshots for the selected area when available.
+              Forecast continues at the derived CAGR ({{ regionalRatePct | number:'1.1-2' }}% p.a.).
               Figures are indicative only — not investment advice.
             </p>
-            <p class="assumption-note warn" *ngIf="dataMessage">{{ dataMessage }}</p>
+            <p class="assumption-note info" *ngIf="dataMessage && !dataMessage.includes('market average')">{{ dataMessage }}</p>
+            <p class="assumption-note warn" *ngIf="dataMessage && dataMessage.includes('market average')">{{ dataMessage }}</p>
           </div>
 
           <div class="growth-calc-chart" role="img" [attr.aria-label]="chartAriaLabel">
@@ -262,6 +263,7 @@ export const FALLBACK_CAGR = 8.5;
     .summary-value.user { color: var(--primary-dark); }
     .assumption-note { margin: 0; font-size: 0.75rem; color: var(--text-light); line-height: 1.45; }
     .assumption-note.warn { color: #b45309; }
+    .assumption-note.info { color: var(--text-secondary); font-weight: 600; }
     .growth-calc-chart {
       position: relative; background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius-lg); padding: 1.25rem 1rem 1rem; box-shadow: var(--shadow); min-height: 380px;
@@ -494,7 +496,9 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
     this.latestAvgPricePerSqft = m?.latestAvgPricePerSqft != null ? Number(m.latestAvgPricePerSqft) : null;
     this.latestRentalYieldPct = m?.latestRentalYieldPct != null ? Number(m.latestRentalYieldPct) : null;
     this.rangeReturnPct = m?.rangeReturnPct != null ? Number(m.rangeReturnPct) : null;
-    this.dataMessage = m?.message && !m?.dataAvailable ? m.message : '';
+    this.dataMessage = m?.dataAvailable
+      ? (m.message || '')
+      : (m?.message || 'No market statistics for this area yet.');
     this.renderChart((res.points || []).map((p) => ({
       year: p.year,
       regional: Number(p.regional),

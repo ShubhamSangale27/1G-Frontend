@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription, debounceTime, switchMap, of, catchError } from 'rxjs';
 import { IndianPricePipe } from '../pipes/indian-price.pipe';
-import { getCitiesForState, getStateNames } from '../../core/data/indian-locations';
 import {
   MarketAreaDto,
   MarketProjectionPoint,
@@ -45,22 +44,23 @@ export const FALLBACK_CAGR = 8.5;
             <div class="area-row">
               <div class="control-group">
                 <label for="calc-state">State</label>
-                <select id="calc-state" class="select" [(ngModel)]="selectedState" (ngModelChange)="onStateChange()">
-                  <option value="">Select state</option>
-                  <option *ngFor="let s of states" [value]="s">{{ s }}</option>
+                <select id="calc-state" class="select" [(ngModel)]="selectedStateId" (ngModelChange)="onStateChange()" [disabled]="areasLoading">
+                  <option [ngValue]="null">{{ stateAreas.length ? 'Select state' : 'No states configured' }}</option>
+                  <option *ngFor="let s of stateAreas" [ngValue]="s.id">{{ s.name }}</option>
                 </select>
               </div>
               <div class="control-group">
                 <label for="calc-city">City</label>
-                <select id="calc-city" class="select" [(ngModel)]="selectedCity" (ngModelChange)="onCityChange()" [disabled]="!selectedState">
-                  <option value="">Select city</option>
-                  <option *ngFor="let c of cities" [value]="c">{{ c }}</option>
+                <select id="calc-city" class="select" [(ngModel)]="selectedCityId" (ngModelChange)="onCityChange()" [disabled]="!selectedStateId || loadingCities">
+                  <option [ngValue]="null">{{ citySelectLabel }}</option>
+                  <option *ngFor="let c of cityAreas" [ngValue]="c.id">{{ c.name }}</option>
                 </select>
               </div>
               <div class="control-group">
                 <label for="calc-loc">Location</label>
-                <select id="calc-loc" class="select" [(ngModel)]="selectedLocationId" (ngModelChange)="onLocationChange()" [disabled]="!selectedCity || !localities.length">
-                  <option [ngValue]="null">{{ localities.length ? 'Select location' : (selectedCity ? 'No locations yet' : 'Select city first') }}</option>
+                <select id="calc-loc" class="select" [(ngModel)]="selectedLocationId" (ngModelChange)="onLocationChange()"
+                  [disabled]="!selectedCityId || loadingLocalities || !localities.length">
+                  <option [ngValue]="null">{{ localitySelectLabel }}</option>
                   <option *ngFor="let loc of localities" [ngValue]="loc.id">{{ loc.name }}</option>
                 </select>
               </div>
@@ -314,13 +314,17 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
   readonly innerW = 640 - 56 - 16;
   readonly innerH = 360 - 16 - 36;
 
-  states: string[] = getStateNames();
-  cities: string[] = [];
+  stateAreas: MarketAreaDto[] = [];
+  cityAreas: MarketAreaDto[] = [];
   localities: MarketAreaDto[] = [];
-  selectedState = '';
-  selectedCity = '';
+  selectedStateId: number | null = null;
+  selectedCityId: number | null = null;
   selectedLocationId: number | null = null;
   selectedRange: MarketRange = '5Y';
+
+  areasLoading = false;
+  loadingCities = false;
+  loadingLocalities = false;
 
   investmentAmount = DEFAULT_INVESTMENT;
   monthlyContribution = DEFAULT_MONTHLY;
@@ -345,19 +349,31 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
 
   private refresh$ = new Subject<void>();
   private sub?: Subscription;
-  private cityAreaId: number | null = null;
-  private cityAreaByName = new Map<string, number>();
 
   constructor(private marketStats: MarketStatsService) {}
+
+  get citySelectLabel(): string {
+    if (!this.selectedStateId) return 'Select state first';
+    if (this.loadingCities) return 'Loading cities…';
+    if (!this.cityAreas.length) return 'No cities configured';
+    return 'Select city';
+  }
+
+  get localitySelectLabel(): string {
+    if (!this.selectedCityId) return 'Select city first';
+    if (this.loadingLocalities) return 'Loading locations…';
+    if (!this.localities.length) return 'City-level (no localities)';
+    return 'Select location';
+  }
 
   ngOnInit(): void {
     this.sub = this.refresh$
       .pipe(
         debounceTime(180),
         switchMap(() => {
-          const areaId = this.selectedLocationId ?? this.cityAreaId;
+          const areaId = this.resolveProjectionAreaId();
           if (!areaId) {
-            this.applyLocalFallback();
+            this.applyLocalFallback(this.resolveNoAreaMessage());
             return of(null);
           }
           this.loading = true;
@@ -372,8 +388,7 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
             })
             .pipe(
               catchError(() => {
-                this.applyLocalFallback();
-                this.dataMessage = 'Could not load market data. Showing illustrative projection.';
+                this.applyLocalFallback('Could not load market data. Showing illustrative projection.');
                 this.loading = false;
                 return of(null);
               }),
@@ -385,17 +400,7 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
         if (res) this.applyProjection(res);
       });
 
-    this.marketStats.listAreas({ level: 'STATE' }).subscribe({
-      next: (areas) => {
-        const apiStates = (areas || []).filter((a) => a.active).map((a) => a.name);
-        this.states = apiStates.length ? apiStates : getStateNames();
-        this.applyDefaultSelection();
-      },
-      error: () => {
-        this.states = getStateNames();
-        this.applyDefaultSelection();
-      },
-    });
+    this.loadStates();
   }
 
   ngOnDestroy(): void {
@@ -403,40 +408,32 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
   }
 
   onStateChange(): void {
-    this.cities = this.selectedState ? getCitiesForState(this.selectedState) : [];
-    this.selectedCity = '';
+    this.cityAreas = [];
     this.localities = [];
+    this.selectedCityId = null;
     this.selectedLocationId = null;
-    this.cityAreaId = null;
-    this.cityAreaByName.clear();
-    if (!this.selectedState) {
+    if (!this.selectedStateId) {
       this.refresh$.next();
       return;
     }
-    this.marketStats.listAreas({ state: this.selectedState, level: 'CITY' }).subscribe({
+    this.loadingCities = true;
+    this.marketStats.listAreas({ parentId: this.selectedStateId, level: 'CITY' }).subscribe({
       next: (areas) => {
-        const apiCities = (areas || []).filter((a) => a.active);
-        if (apiCities.length) {
-          this.cities = apiCities.map((c) => c.name);
-          this.cityAreaByName.clear();
-          apiCities.forEach((c) => this.cityAreaByName.set(c.name.toLowerCase(), c.id));
-        } else if (!this.cities.length) {
-          this.cities = getCitiesForState(this.selectedState);
-        }
-        const preferred = this.cities.includes('Mumbai')
-          ? 'Mumbai'
-          : this.cities.includes('New Delhi')
-            ? 'New Delhi'
-            : this.cities[0] || '';
+        this.loadingCities = false;
+        this.cityAreas = (areas || []).filter((a) => a.active);
+        const preferred = this.pickPreferredCity(this.cityAreas);
         if (preferred) {
-          this.selectedCity = preferred;
+          this.selectedCityId = preferred.id;
           this.onCityChange();
         } else {
+          this.dataMessage = 'No cities configured for this state yet.';
           this.refresh$.next();
         }
       },
       error: () => {
-        this.cities = getCitiesForState(this.selectedState);
+        this.loadingCities = false;
+        this.cityAreas = [];
+        this.dataMessage = 'Could not load cities for the selected state.';
         this.refresh$.next();
       },
     });
@@ -445,38 +442,27 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
   onCityChange(): void {
     this.localities = [];
     this.selectedLocationId = null;
-    this.cityAreaId = this.cityAreaByName.get(this.selectedCity.toLowerCase()) ?? null;
-    if (!this.selectedState || !this.selectedCity) {
+    if (!this.selectedCityId) {
       this.refresh$.next();
       return;
     }
-    this.marketStats
-      .listAreas({ state: this.selectedState, city: this.selectedCity, level: 'LOCALITY' })
-      .subscribe({
-        next: (locs) => {
-          this.localities = locs || [];
-          if (this.localities.length) {
-            this.selectedLocationId = this.localities[0].id;
-          }
-          if (!this.cityAreaId) {
-            this.marketStats
-              .listAreas({ state: this.selectedState, level: 'CITY' })
-              .subscribe({
-                next: (cities) => {
-                  const match = (cities || []).find(
-                    (c) => c.name.toLowerCase() === this.selectedCity.toLowerCase(),
-                  );
-                  this.cityAreaId = match?.id ?? null;
-                  this.refresh$.next();
-                },
-                error: () => this.refresh$.next(),
-              });
-          } else {
-            this.refresh$.next();
-          }
-        },
-        error: () => this.refresh$.next(),
-      });
+    this.loadingLocalities = true;
+    this.marketStats.listAreas({ parentId: this.selectedCityId, level: 'LOCALITY' }).subscribe({
+      next: (locs) => {
+        this.loadingLocalities = false;
+        this.localities = (locs || []).filter((a) => a.active);
+        if (this.localities.length === 1) {
+          this.selectedLocationId = this.localities[0].id;
+        }
+        this.refresh$.next();
+      },
+      error: () => {
+        this.loadingLocalities = false;
+        this.localities = [];
+        this.dataMessage = 'Could not load localities for the selected city.';
+        this.refresh$.next();
+      },
+    });
   }
 
   onLocationChange(): void {
@@ -510,6 +496,73 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
     this.refresh$.next();
   }
 
+  private loadStates(): void {
+    this.areasLoading = true;
+    this.marketStats.listAreas({ level: 'STATE' }).subscribe({
+      next: (areas) => {
+        this.areasLoading = false;
+        this.stateAreas = (areas || []).filter((a) => a.active);
+        if (!this.stateAreas.length) {
+          this.dataMessage = 'No market areas configured yet. An admin can add states, cities, and localities.';
+          this.refresh$.next();
+          return;
+        }
+        this.applyDefaultSelection();
+      },
+      error: () => {
+        this.areasLoading = false;
+        this.stateAreas = [];
+        this.dataMessage = 'Could not load market areas. Please try again later.';
+        this.refresh$.next();
+      },
+    });
+  }
+
+  private applyDefaultSelection(): void {
+    const maharashtra = this.stateAreas.find((s) => s.name.toLowerCase() === 'maharashtra');
+    this.selectedStateId = maharashtra?.id ?? this.stateAreas[0]?.id ?? null;
+    if (this.selectedStateId) {
+      this.onStateChange();
+      return;
+    }
+    this.refresh$.next();
+  }
+
+  private pickPreferredCity(cities: MarketAreaDto[]): MarketAreaDto | null {
+    if (!cities.length) return null;
+    const preferredNames = ['mumbai', 'new delhi', 'bengaluru', 'bangalore'];
+    for (const name of preferredNames) {
+      const match = cities.find((c) => c.name.toLowerCase() === name);
+      if (match) return match;
+    }
+    return cities[0];
+  }
+
+  private resolveProjectionAreaId(): number | null {
+    if (this.selectedLocationId != null) return this.selectedLocationId;
+    if (this.localities.length > 1 && this.selectedLocationId == null) return null;
+    return this.selectedCityId;
+  }
+
+  private resolveNoAreaMessage(): string {
+    if (!this.stateAreas.length) {
+      return 'No market areas configured yet. An admin can add states, cities, and localities.';
+    }
+    if (this.selectedStateId && !this.cityAreas.length && !this.loadingCities) {
+      return 'No cities configured for this state yet.';
+    }
+    if (this.selectedCityId && this.localities.length > 1 && this.selectedLocationId == null) {
+      return 'Select a location to view market statistics for this city.';
+    }
+    if (!this.selectedCityId && this.selectedStateId) {
+      return 'Select a city to view market statistics.';
+    }
+    if (!this.selectedStateId) {
+      return 'Select a state to view market statistics.';
+    }
+    return '';
+  }
+
   private applyProjection(res: MarketProjectionResponse): void {
     const m = res.market;
     this.regionalRatePct = Number(res.regionalRatePct ?? FALLBACK_CAGR);
@@ -519,9 +572,6 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
     this.latestRentalYieldPct = m?.latestRentalYieldPct != null ? Number(m.latestRentalYieldPct) : null;
     this.rangeReturnPct = m?.rangeReturnPct != null ? Number(m.rangeReturnPct) : null;
     this.dataMessage = m?.dataAvailable ? '' : (m?.message || 'No market statistics for this area yet.');
-    if (m?.derivedCagrPct != null && !this.userRateTouched()) {
-      // keep user rate in sync only when still at fallback
-    }
     this.renderChart((res.points || []).map((p) => ({
       year: p.year,
       regional: Number(p.regional),
@@ -530,29 +580,12 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
     })));
   }
 
-  private applyDefaultSelection(): void {
-    if (this.states.includes('Maharashtra')) {
-      this.selectedState = 'Maharashtra';
-      this.onStateChange();
-      return;
-    }
-    if (this.states.length) {
-      this.selectedState = this.states[0];
-      this.onStateChange();
-      return;
-    }
-    this.refresh$.next();
-  }
-
-  private userRateTouched(): boolean {
-    return Math.abs(this.expectedRatePct - FALLBACK_CAGR) > 0.05;
-  }
-
-  private applyLocalFallback(): void {
+  private applyLocalFallback(message = ''): void {
     this.regionalRatePct = FALLBACK_CAGR;
     this.latestAvgPricePerSqft = null;
     this.latestRentalYieldPct = null;
     this.rangeReturnPct = null;
+    if (message) this.dataMessage = message;
     const points: MarketProjectionPoint[] = [];
     for (let y = 0; y <= this.years; y++) {
       points.push({

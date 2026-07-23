@@ -102,6 +102,49 @@ describe('PropertyGrowthCalculatorComponent', () => {
     expect(args.localityId).toBe(9);
   }));
 
+  it('auto-selects locality when only one is configured', fakeAsync(() => {
+    fixture.detectChanges();
+    tick();
+    expect(component.selectedLocationId).toBe(9);
+    tick(250);
+    const args = marketStats.project.calls.mostRecent().args[0];
+    expect(args.localityId).toBe(9);
+  }));
+
+  it('uses snapshot-derived regional rate from API response', fakeAsync(() => {
+    marketStats.project.and.returnValue(
+      of({
+        market: {
+          area: locAndheri,
+          range: 'MAX',
+          dataAvailable: true,
+          derivedCagrPct: 15.97,
+          latestAvgPricePerSqft: 130,
+          rangeReturnPct: 85.71,
+          message: 'Based on 3 admin snapshot(s) from 2021-01-01 to 2025-01-01.',
+          history: [],
+        },
+        regionalRatePct: 15.97,
+        userRatePct: 8.5,
+        regionalFinal: 3200000,
+        userFinal: 2500000,
+        points: [
+          { year: 0, regional: 2500000, user: 2500000, forecast: false },
+          { year: 2, regional: 2800000, user: 2600000, forecast: false },
+          { year: 4, regional: 3200000, user: 2700000, forecast: false },
+          { year: 10, regional: 4500000, user: 4000000, forecast: true },
+        ],
+      }),
+    );
+    fixture.detectChanges();
+    tick(250);
+    expect(component.regionalRatePct).toBeCloseTo(15.97, 1);
+    expect(component.regionalRatePct).not.toBe(8.5);
+    expect(component.regionalFinal).toBe(3200000);
+    expect(component.latestAvgPricePerSqft).toBe(130);
+    expect(component.rangeReturnPct).toBeCloseTo(85.71, 1);
+  }));
+
   it('shows snapshot-based message when stats available', fakeAsync(() => {
     marketStats.project.and.returnValue(
       of({

@@ -435,6 +435,9 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
       next: (locs) => {
         this.loadingLocalities = false;
         this.localities = (locs || []).filter((a) => a.active);
+        if (this.localities.length === 1) {
+          this.selectedLocationId = this.localities[0].id;
+        }
         this.refresh$.next();
       },
       error: () => {
@@ -490,21 +493,43 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
 
   private applyProjection(res: MarketProjectionResponse): void {
     const m = res.market;
-    this.regionalRatePct = Number(res.regionalRatePct ?? FALLBACK_CAGR);
-    this.regionalFinal = Number(res.regionalFinal ?? 0);
-    this.userFinal = Number(res.userFinal ?? 0);
-    this.latestAvgPricePerSqft = m?.latestAvgPricePerSqft != null ? Number(m.latestAvgPricePerSqft) : null;
-    this.latestRentalYieldPct = m?.latestRentalYieldPct != null ? Number(m.latestRentalYieldPct) : null;
-    this.rangeReturnPct = m?.rangeReturnPct != null ? Number(m.rangeReturnPct) : null;
+    const apiRegional = this.toNum(res.regionalRatePct, NaN);
+    const derived = m?.derivedCagrPct != null ? this.toNum(m.derivedCagrPct, NaN) : NaN;
+    if (m?.dataAvailable && Number.isFinite(derived)) {
+      this.regionalRatePct = Number.isFinite(apiRegional) ? apiRegional : derived;
+    } else if (Number.isFinite(apiRegional)) {
+      this.regionalRatePct = apiRegional;
+    } else if (Number.isFinite(derived)) {
+      this.regionalRatePct = derived;
+    } else {
+      this.regionalRatePct = FALLBACK_CAGR;
+    }
+    this.regionalFinal = this.toNum(res.regionalFinal, 0);
+    this.userFinal = this.toNum(res.userFinal, 0);
+    this.latestAvgPricePerSqft = m?.latestAvgPricePerSqft != null ? this.toNum(m.latestAvgPricePerSqft, NaN) : null;
+    this.latestRentalYieldPct = m?.latestRentalYieldPct != null ? this.toNum(m.latestRentalYieldPct, NaN) : null;
+    this.rangeReturnPct = m?.rangeReturnPct != null ? this.toNum(m.rangeReturnPct, NaN) : null;
+    if (this.latestAvgPricePerSqft != null && !Number.isFinite(this.latestAvgPricePerSqft)) {
+      this.latestAvgPricePerSqft = null;
+    }
+    if (this.latestRentalYieldPct != null && !Number.isFinite(this.latestRentalYieldPct)) {
+      this.latestRentalYieldPct = null;
+    }
+    if (this.rangeReturnPct != null && !Number.isFinite(this.rangeReturnPct)) {
+      this.rangeReturnPct = null;
+    }
     this.dataMessage = m?.dataAvailable
       ? (m.message || '')
       : (m?.message || 'No market statistics for this area yet.');
-    this.renderChart((res.points || []).map((p) => ({
-      year: p.year,
-      regional: Number(p.regional),
-      user: Number(p.user),
-      forecast: !!p.forecast,
-    })));
+    const points = (res.points || [])
+      .map((p) => ({
+        year: p.year,
+        regional: this.toNum(p.regional, 0),
+        user: this.toNum(p.user, 0),
+        forecast: !!p.forecast,
+      }))
+      .sort((a, b) => a.year - b.year);
+    this.renderChart(points);
   }
 
   private applyLocalFallback(message = ''): void {
@@ -528,6 +553,7 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
   }
 
   private renderChart(points: MarketProjectionPoint[]): void {
+    points = [...points].sort((a, b) => a.year - b.year);
     if (!points.length) {
       this.regionalPolyline = '';
       this.userPolyline = '';
@@ -606,5 +632,11 @@ export class PropertyGrowthCalculatorComponent implements OnInit, OnDestroy {
     if (abs >= 1_00_000) return (v / 1_00_000).toFixed(1) + 'L';
     if (abs >= 1000) return (v / 1000).toFixed(0) + 'k';
     return String(Math.round(v));
+  }
+
+  private toNum(v: unknown, fallback: number): number {
+    if (v == null) return fallback;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : fallback;
   }
 }

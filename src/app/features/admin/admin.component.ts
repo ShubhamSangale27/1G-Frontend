@@ -9,6 +9,7 @@ import { CarouselSlide } from '../../core/models/carousel.model';
 import { Property, PageResponse } from '../../core/models/property.model';
 import { ToastrService } from 'ngx-toastr';
 import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
+import { getStateNames, getCitiesForState } from '../../core/data/indian-locations';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 import {
   PushCampaignDto,
@@ -612,15 +613,15 @@ interface MarketSnapshotAdminRow {
               <button type="button" class="btn btn-outline" (click)="importRbiSeed()" [disabled]="importingMarketSeed">
                 {{ importingMarketSeed ? 'Importing…' : 'Import open/RBI seed' }}
               </button>
-              <button type="button" class="btn btn-primary" (click)="openAreaForm()">+ Add Area</button>
+              <button type="button" class="btn btn-primary" (click)="openAreaForm()">+ Add Locality</button>
             </div>
           </div>
+          <p class="form-hint market-stats-hint">States and cities are fixed (same as Add Property). Configure localities and snapshots here.</p>
           <div class="visits-table-wrap" *ngIf="marketAreas.length && !loadingMarketAreas">
             <table class="visits-table">
               <thead>
                 <tr>
-                  <th>Level</th>
-                  <th>Name</th>
+                  <th>Locality</th>
                   <th>State</th>
                   <th>City</th>
                   <th>Active</th>
@@ -629,7 +630,6 @@ interface MarketSnapshotAdminRow {
               </thead>
               <tbody>
                 <tr *ngFor="let a of marketAreas" [class.row-selected]="selectedMarketAreaId === a.id">
-                  <td>{{ a.level }}</td>
                   <td>{{ a.name }}</td>
                   <td>{{ a.stateName || '—' }}</td>
                   <td>{{ a.cityName || '—' }}</td>
@@ -644,7 +644,7 @@ interface MarketSnapshotAdminRow {
             </table>
           </div>
           <div class="empty-state" *ngIf="!marketAreas.length && !loadingMarketAreas">
-            <p>No market areas yet. Import the open/RBI seed or add State → City → Locality manually.</p>
+            <p>No localities yet. Import the open/RBI seed or add a locality for a state/city pair.</p>
           </div>
           <div class="loading-state" *ngIf="loadingMarketAreas"><p>Loading market areas...</p></div>
 
@@ -767,45 +767,34 @@ interface MarketSnapshotAdminRow {
         <div class="modal-overlay" *ngIf="areaFormOpen" (click)="closeAreaForm()">
           <div class="modal-content faq-modal" (click)="$event.stopPropagation()">
             <div class="modal-header">
-              <h3>{{ editingAreaId ? 'Edit Area' : 'Add Area' }}</h3>
+              <h3>{{ editingAreaId ? 'Edit Locality' : 'Add Locality' }}</h3>
               <button type="button" class="modal-close" (click)="closeAreaForm()">×</button>
             </div>
             <div class="modal-body">
               <div class="form-group">
-                <label>Level</label>
-                <select class="form-select" [(ngModel)]="areaForm.level" name="areaLevel" (ngModelChange)="onAreaLevelChange()">
-                  <option value="STATE">STATE</option>
-                  <option value="CITY">CITY</option>
-                  <option value="LOCALITY">LOCALITY</option>
+                <label>State</label>
+                <select class="form-select" [(ngModel)]="areaForm.stateName" name="areaStateName" (ngModelChange)="onAreaStateChange()">
+                  <option value="">Select state</option>
+                  <option *ngFor="let s of adminStateNames" [value]="s">{{ s }}</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>Name</label>
-                <input type="text" class="form-input" [(ngModel)]="areaForm.name" name="areaName" />
-              </div>
-              <div class="form-group" *ngIf="areaForm.level !== 'STATE'">
-                <label>{{ areaForm.level === 'CITY' ? 'State parent' : 'City parent' }}</label>
-                <select class="form-select" [(ngModel)]="areaForm.parentId" name="areaParentId" (ngModelChange)="onAreaParentChange()">
-                  <option [ngValue]="null">Select parent…</option>
-                  <option *ngFor="let p of parentAreaOptions" [ngValue]="p.id">{{ p.name }} ({{ p.level }})</option>
+                <label>City</label>
+                <select class="form-select" [(ngModel)]="areaForm.cityName" name="areaCityName" [disabled]="!areaForm.stateName">
+                  <option value="">Select city</option>
+                  <option *ngFor="let c of adminCities" [value]="c">{{ c }}</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>State name</label>
-                <input type="text" class="form-input" [(ngModel)]="areaForm.stateName" name="areaStateName" [readonly]="areaForm.level === 'STATE'" />
-                <p class="form-hint" *ngIf="areaForm.level === 'STATE'">Auto-filled from name for STATE rows.</p>
-              </div>
-              <div class="form-group" *ngIf="areaForm.level !== 'STATE'">
-                <label>City name</label>
-                <input type="text" class="form-input" [(ngModel)]="areaForm.cityName" name="areaCityName" [readonly]="areaForm.level === 'CITY'" />
-                <p class="form-hint" *ngIf="areaForm.level === 'CITY'">Auto-filled from name for CITY rows.</p>
+                <label>Locality name</label>
+                <input type="text" class="form-input" [(ngModel)]="areaForm.name" name="areaName" placeholder="e.g. Andheri West" />
               </div>
               <div class="form-group">
                 <label>Sort order</label>
                 <input type="number" class="form-input" [(ngModel)]="areaForm.sortOrder" name="areaSortOrder" min="0" />
               </div>
               <label class="checkbox-label">
-                <input type="checkbox" [(ngModel)]="areaForm.active" name="areaActive" /> Active (shown on public growth calculator)
+                <input type="checkbox" [(ngModel)]="areaForm.active" name="areaActive" /> Active (shown on growth calculator)
               </label>
               <div class="modal-actions">
                 <button type="button" class="btn btn-outline" (click)="closeAreaForm()">Cancel</button>
@@ -1468,6 +1457,8 @@ export class AdminComponent implements OnInit {
   promoteForm = { question: '', answer: '', keywords: '' };
 
   marketAreas: MarketAreaAdminRow[] = [];
+  adminStateNames: string[] = getStateNames();
+  adminCities: string[] = [];
   loadingMarketAreas = false;
   importingMarketSeed = false;
   areaFormOpen = false;
@@ -2259,7 +2250,7 @@ export class AdminComponent implements OnInit {
     this.api.get<MarketAreaAdminRow[]>('/admin/market-stats/areas').subscribe({
       next: (list) => {
         this.ngZone.run(() => {
-          this.marketAreas = Array.isArray(list) ? list : [];
+          this.marketAreas = (Array.isArray(list) ? list : []).filter((a) => a.level === 'LOCALITY');
           this.loadingMarketAreas = false;
           this.cdr.detectChanges();
         });
@@ -2297,7 +2288,7 @@ export class AdminComponent implements OnInit {
   openAreaForm(a?: MarketAreaAdminRow) {
     this.editingAreaId = a?.id ?? null;
     this.areaForm = {
-      level: a?.level || 'LOCALITY',
+      level: 'LOCALITY',
       name: a?.name || '',
       parentId: a?.parentId ?? null,
       stateName: a?.stateName || '',
@@ -2305,20 +2296,15 @@ export class AdminComponent implements OnInit {
       active: a?.active ?? true,
       sortOrder: a?.sortOrder ?? 0,
     };
-    if (!a) {
-      this.syncAreaNamesFromParent();
-    }
+    this.adminCities = this.areaForm.stateName ? getCitiesForState(this.areaForm.stateName) : [];
     this.areaFormOpen = true;
   }
 
-  get parentAreaOptions(): MarketAreaAdminRow[] {
-    if (this.areaForm.level === 'CITY') {
-      return this.marketAreas.filter((row) => row.level === 'STATE');
+  onAreaStateChange(): void {
+    this.adminCities = this.areaForm.stateName ? getCitiesForState(this.areaForm.stateName) : [];
+    if (!this.adminCities.includes(this.areaForm.cityName)) {
+      this.areaForm.cityName = '';
     }
-    if (this.areaForm.level === 'LOCALITY') {
-      return this.marketAreas.filter((row) => row.level === 'CITY');
-    }
-    return [];
   }
 
   get selectedMarketAreaLabel(): string {
@@ -2366,25 +2352,24 @@ export class AdminComponent implements OnInit {
 
   saveArea() {
     if (!this.areaForm.name.trim()) {
-      this.toast.error('Name is required');
+      this.toast.error('Locality name is required');
       return;
     }
-    this.syncAreaNamesFromParent();
-    if (this.areaForm.level === 'CITY' && !this.areaForm.parentId) {
-      this.toast.error('Select a state parent for CITY areas');
+    if (!this.areaForm.stateName.trim()) {
+      this.toast.error('Select a state');
       return;
     }
-    if (this.areaForm.level === 'LOCALITY' && !this.areaForm.parentId) {
-      this.toast.error('Select a city parent for LOCALITY areas');
+    if (!this.areaForm.cityName.trim()) {
+      this.toast.error('Select a city');
       return;
     }
     this.savingArea = true;
     const body = {
-      level: this.areaForm.level,
+      level: 'LOCALITY',
       name: this.areaForm.name.trim(),
-      parentId: this.areaForm.level === 'STATE' ? null : this.areaForm.parentId,
-      stateName: this.areaForm.stateName?.trim() || null,
-      cityName: this.areaForm.cityName?.trim() || null,
+      parentId: null,
+      stateName: this.areaForm.stateName.trim(),
+      cityName: this.areaForm.cityName.trim(),
       active: this.areaForm.active,
       sortOrder: this.areaForm.sortOrder ?? 0,
     };

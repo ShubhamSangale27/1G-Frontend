@@ -56,32 +56,49 @@ export interface MarketProjectionResponse {
 export class MarketStatsService {
   constructor(private api: ApiService) {}
 
-  listAreas(params: {
-    parentId?: number;
-    state?: string;
-    city?: string;
-    level?: string;
-  } = {}): Observable<MarketAreaDto[]> {
-    const q: Record<string, string | number | boolean> = {};
-    if (params.parentId != null) q['parentId'] = params.parentId;
-    if (params.state) q['state'] = params.state;
-    if (params.city) q['city'] = params.city;
-    if (params.level) q['level'] = params.level;
-    return this.api.get<MarketAreaDto[]>('/market-stats/areas', q);
+  listLocalities(state: string, city: string): Observable<MarketAreaDto[]> {
+    return this.api.get<MarketAreaDto[]>('/market-stats/areas', {
+      state,
+      city,
+      level: 'LOCALITY',
+    });
   }
 
-  getStats(areaId: number, range: MarketRange): Observable<MarketStatsResponse> {
-    return this.api.get<MarketStatsResponse>('/market-stats', { areaId, range });
+  getStatsByLocation(params: {
+    state: string;
+    city: string;
+    localityId?: number | null;
+    range: MarketRange;
+  }): Observable<MarketStatsResponse> {
+    const q: Record<string, string | number> = {
+      state: params.state,
+      city: params.city,
+      range: params.range,
+    };
+    if (params.localityId != null) q['localityId'] = params.localityId;
+    return this.api.get<MarketStatsResponse>('/market-stats', q);
   }
 
   project(body: {
-    areaId: number;
+    state: string;
+    city: string;
+    localityId?: number | null;
     range: MarketRange;
     initialAmount: number;
     monthlyContribution: number;
     years: number;
     expectedRatePct?: number | null;
   }): Observable<MarketProjectionResponse> {
-    return this.api.post<MarketProjectionResponse>('/market-stats/projection', body);
+    const payload: Record<string, unknown> = {
+      state: body.state,
+      city: body.city,
+      range: body.range,
+      initialAmount: body.initialAmount,
+      monthlyContribution: body.monthlyContribution,
+      years: body.years,
+      expectedRatePct: body.expectedRatePct,
+    };
+    if (body.localityId != null) payload['localityId'] = body.localityId;
+    return this.api.post<MarketProjectionResponse>('/market-stats/projection', payload);
   }
 }

@@ -182,7 +182,7 @@ export const FALLBACK_CAGR = 8.5;
               <circle *ngFor="let p of chartDots" class="dot-user" [attr.cx]="p.ux" [attr.cy]="p.uy" r="3.5" />
             </svg>
             <div class="chart-legend">
-              <span class="legend-item regional"><i></i> {{ 'growth.legendArea' | t:{ rate: (regionalRatePct | number:'1.1-2') } }}</span>
+              <span class="legend-item regional"><i></i> {{ 'growth.legendArea' | t:{ rate: (regionalRatePct | number:'1.1-2') || '0' } }}</span>
               <span class="legend-item user"><i></i> {{ 'growth.legendUser' | t:{ rate: expectedRatePct } }}</span>
               <span class="legend-item split" *ngIf="forecastSplitX != null"><i></i> {{ 'growth.forecast' | t }}</span>
             </div>

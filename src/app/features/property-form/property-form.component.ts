@@ -69,7 +69,8 @@ interface PropertyMediaItem {
                 <select formControlName="propertyType">
                   <option value="">Select</option>
                   <option value="HOUSE">House</option>
-                  <option value="APARTMENT">Apartment</option>
+                  <option value="FLAT">Flat</option>
+                  <option value="PG">PG</option>
                   <option value="LAND">Land</option>
                   <option value="COMMERCIAL">Commercial</option>
                 </select>
@@ -495,7 +496,7 @@ export class PropertyFormComponent implements OnInit {
           title: p.title,
           description: p.description || '',
           listingType: p.listingType,
-          propertyType: p.propertyType,
+          propertyType: p.propertyType === 'APARTMENT' ? 'FLAT' : p.propertyType,
           price: p.price,
           address: p.address,
           locality: p.locality || '',

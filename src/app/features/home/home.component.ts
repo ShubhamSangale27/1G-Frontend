@@ -184,10 +184,15 @@ interface HomeCarouselSlide {
             <h5>Houses</h5>
             <p>Independent houses and villas</p>
           </a>
-          <a routerLink="/search" [queryParams]="{propertyType: 'APARTMENT'}" class="category-card">
+          <a routerLink="/search" [queryParams]="{propertyType: 'FLAT'}" class="category-card">
             <div class="category-icon">🏢</div>
-            <h5>Apartments</h5>
+            <h5>Flats</h5>
             <p>Flats and apartments</p>
+          </a>
+          <a routerLink="/search" [queryParams]="{propertyType: 'PG'}" class="category-card">
+            <div class="category-icon">🛏️</div>
+            <h5>PG</h5>
+            <p>Paying guest accommodations</p>
           </a>
           <a routerLink="/search" [queryParams]="{propertyType: 'LAND'}" class="category-card">
             <div class="category-icon">🌾</div>

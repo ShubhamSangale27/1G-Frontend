@@ -1,15 +1,19 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { ConfigService } from '../../services/config.service';
+import { I18nService } from '../../i18n/i18n.service';
+import { AppLanguage } from '../../i18n/translations';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { resolvePropertyImageUrl } from '../../utils/image-url.util';
 import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, BrandLogoComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, BrandLogoComponent, TranslatePipe],
   template: `
     <header class="header">
       <div class="container header-inner">
@@ -17,36 +21,46 @@ import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
           <app-brand-logo variant="compact" />
         </a>
         <nav class="nav">
+          <label class="lang-switch" [attr.aria-label]="'nav.languageAria' | t">
+            <span class="lang-label">{{ 'nav.language' | t }}</span>
+            <select
+              class="lang-select"
+              [ngModel]="i18n.lang()"
+              (ngModelChange)="onLanguageChange($event)"
+            >
+              <option *ngFor="let l of i18n.languages" [value]="l.code">{{ l.nativeLabel }}</option>
+            </select>
+          </label>
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
-            <span>Home</span>
+            <span>{{ 'nav.home' | t }}</span>
           </a>
           <a routerLink="/search" routerLinkActive="active">
-            <span>Search</span>
+            <span>{{ 'nav.search' | t }}</span>
           </a>
           <a routerLink="/blog" routerLinkActive="active">
-            <span>Blog</span>
+            <span>{{ 'nav.blog' | t }}</span>
           </a>
           <ng-container *ngIf="auth.isLoggedIn() && auth.user() as u">
             <a routerLink="/dashboard" routerLinkActive="active">
-              <span>Dashboard</span>
+              <span>{{ 'nav.dashboard' | t }}</span>
             </a>
             <a routerLink="/my-properties" routerLinkActive="active">
-              <span>My Properties</span>
+              <span>{{ 'nav.myProperties' | t }}</span>
             </a>
             <a routerLink="/property/new" class="btn btn-accent btn-sm">
-              <span>+ List Property</span>
+              <span>{{ 'nav.listProperty' | t }}</span>
             </a>
             <a *ngIf="u.role === 'AGENT' || u.role === 'ADMIN'" routerLink="/agent" routerLinkActive="active">
-              <span>Agent</span>
+              <span>{{ 'nav.agent' | t }}</span>
             </a>
             <a *ngIf="u.role === 'ADMIN'" routerLink="/admin" routerLinkActive="active">
-              <span>Admin</span>
+              <span>{{ 'nav.admin' | t }}</span>
             </a>
             <a *ngIf="u.role === 'BLOG' || u.role === 'ADMIN'" routerLink="/blog-editor" routerLinkActive="active">
-              <span>Blog Studio</span>
+              <span>{{ 'nav.blogStudio' | t }}</span>
             </a>
             <div class="user-menu">
-              <a routerLink="/profile" class="user-menu-link" title="Edit profile">
+              <a routerLink="/profile" class="user-menu-link" [attr.title]="'nav.profile' | t">
                 @if (avatarUrl(u)) {
                   <img [src]="avatarUrl(u)!" alt="" class="user-avatar-img" />
                 } @else {
@@ -58,11 +72,11 @@ import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
                 </div>
               </a>
             </div>
-            <button type="button" class="btn btn-outline btn-sm" (click)="auth.logout()">Logout</button>
+            <button type="button" class="btn btn-outline btn-sm" (click)="auth.logout()">{{ 'nav.logout' | t }}</button>
           </ng-container>
           <ng-container *ngIf="!auth.isLoggedIn()">
-            <a routerLink="/login" routerLinkActive="active">Login</a>
-            <a routerLink="/signup" class="btn btn-primary btn-sm">Sign Up</a>
+            <a routerLink="/login" routerLinkActive="active">{{ 'nav.login' | t }}</a>
+            <a routerLink="/signup" class="btn btn-primary btn-sm">{{ 'nav.signup' | t }}</a>
           </ng-container>
         </nav>
       </div>
@@ -101,6 +115,33 @@ import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
       align-items: center;
       flex-wrap: wrap;
       gap: 0.5rem;
+    }
+    .lang-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-right: 0.25rem;
+      padding: 0.25rem 0.4rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+    }
+    .lang-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .lang-select {
+      border: 0;
+      background: transparent;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text);
+      max-width: 6.5rem;
+      cursor: pointer;
+      outline: none;
     }
     .nav a {
       color: var(--text-secondary);
@@ -232,8 +273,13 @@ import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
 export class HeaderComponent {
   constructor(
     public auth: AuthService,
+    public i18n: I18nService,
     private config: ConfigService,
   ) {}
+
+  onLanguageChange(code: AppLanguage): void {
+    this.i18n.setLanguage(code);
+  }
 
   avatarUrl(u: { profileImageUrl?: string }): string | null {
     if (!u.profileImageUrl) return null;

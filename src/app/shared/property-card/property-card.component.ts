@@ -3,21 +3,26 @@ import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Property } from '../../core/models/property.model';
 import { ConfigService } from '../../core/services/config.service';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { resolvePropertyImageUrl, resolveVideoCardPosterUrl } from '../../core/utils/image-url.util';
 import { IndianPricePipe } from '../pipes/indian-price.pipe';
 
 @Component({
   selector: 'app-property-card',
   standalone: true,
-  imports: [RouterLink, CommonModule, IndianPricePipe],
+  imports: [RouterLink, CommonModule, IndianPricePipe, TranslatePipe],
   template: `
-    <a [routerLink]="['/property', property.id]" class="card property-card">
+    <a [routerLink]="['/property', property.id]" class="card property-card" [class.is-sold-out]="property.soldOut">
       <div class="img-wrap">
         <img [src]="imgUrl" [alt]="property.title" (error)="onImgError($event)" />
+        <div class="sold-out-sticker" *ngIf="property.soldOut" aria-hidden="true">
+          <span>{{ 'common.soldOut' | t }}</span>
+        </div>
         <div class="overlay-badges">
-          <span class="badge badge-listing">{{ property.listingType }}</span>
-          <span class="badge badge-verified">✔ Verified</span>
-          <span class="badge badge-premium" *ngIf="property.isPremium">⭐ Premium</span>
+          <span class="badge badge-listing">{{ i18n.listingTypeLabel(property.listingType) }}</span>
+          <span class="badge badge-verified">✔ {{ 'common.verified' | t }}</span>
+          <span class="badge badge-premium" *ngIf="property.isPremium">⭐ {{ 'common.premium' | t }}</span>
         </div>
         <div class="img-count" *ngIf="property.images && property.images.length > 1">
           {{ mediaGalleryLabel }}
@@ -31,17 +36,17 @@ import { IndianPricePipe } from '../pipes/indian-price.pipe';
         </p>
         <div class="features">
           <span *ngIf="property.bedrooms" class="feature-item">
-            <span>🛏️</span> {{ property.bedrooms }} BHK
+            <span>🛏️</span> {{ property.bedrooms }} {{ 'common.bhk' | t }}
           </span>
           <span *ngIf="property.bathrooms" class="feature-item">
-            <span>🚿</span> {{ property.bathrooms }} Bath
+            <span>🚿</span> {{ property.bathrooms }} {{ 'common.bath' | t }}
           </span>
           <span *ngIf="property.areaSqft" class="feature-item">
-            <span>📐</span> {{ property.areaSqft }} sq.ft
+            <span>📐</span> {{ property.areaSqft }} {{ 'common.sqft' | t }}
           </span>
         </div>
         <div class="footer">
-          <span class="property-type">{{ property.propertyType }}</span>
+          <span class="property-type">{{ i18n.propertyTypeLabel(property.propertyType) }}</span>
           <span class="views" *ngIf="property.viewCount">
             👁️ {{ property.viewCount }}
           </span>
@@ -75,6 +80,32 @@ import { IndianPricePipe } from '../pipes/indian-price.pipe';
       height: 100%;
       object-fit: cover;
       transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .is-sold-out .img-wrap img {
+      filter: grayscale(0.35) brightness(0.85);
+    }
+    .sold-out-sticker {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.28);
+    }
+    .sold-out-sticker span {
+      display: inline-block;
+      padding: 0.55rem 1.35rem;
+      border: 3px solid #dc2626;
+      color: #dc2626;
+      background: rgba(255, 255, 255, 0.92);
+      font-weight: 800;
+      font-size: clamp(0.95rem, 2.4vw, 1.25rem);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transform: rotate(-18deg);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
     }
     .property-card:hover .img-wrap img {
       transform: scale(1.08);
@@ -214,7 +245,10 @@ import { IndianPricePipe } from '../pipes/indian-price.pipe';
 export class PropertyCardComponent {
   @Input() property!: Property;
 
-  constructor(private config: ConfigService) {}
+  constructor(
+    private config: ConfigService,
+    public i18n: I18nService,
+  ) {}
 
   get imgUrl(): string {
     const all = this.property.images || [];

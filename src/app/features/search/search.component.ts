@@ -54,7 +54,8 @@ const PRICE_STEP = 100_000;
               <select [(ngModel)]="propertyType" (change)="search()">
                 <option value="">All Types</option>
                 <option value="HOUSE">House</option>
-                <option value="APARTMENT">Apartment</option>
+                <option value="FLAT">Flat</option>
+                <option value="PG">PG</option>
                 <option value="LAND">Land</option>
                 <option value="COMMERCIAL">Commercial</option>
               </select>
@@ -509,19 +510,24 @@ export class SearchComponent implements OnInit {
     if (params['state']) this.state = params['state'];
     if (params['city']) this.city = params['city'];
     if (params['listingType']) this.listingType = params['listingType'];
-    if (params['propertyType']) this.propertyType = params['propertyType'];
+    if (params['propertyType']) this.propertyType = this.normalizeType(params['propertyType']);
     this.updateCitiesForState();
     this.search();
     this.route.queryParams.subscribe(q => {
-      if (q['state'] !== this.state || q['city'] !== this.city || q['listingType'] !== this.listingType || q['propertyType'] !== this.propertyType) {
+      const nextType = this.normalizeType(q['propertyType'] || '');
+      if (q['state'] !== this.state || q['city'] !== this.city || q['listingType'] !== this.listingType || nextType !== this.propertyType) {
         if (q['state']) this.state = q['state'];
         if (q['city']) this.city = q['city'];
         if (q['listingType']) this.listingType = q['listingType'];
-        if (q['propertyType']) this.propertyType = q['propertyType'];
+        this.propertyType = nextType;
         this.updateCitiesForState();
         this.search();
       }
     });
+  }
+
+  private normalizeType(type: string): string {
+    return type === 'APARTMENT' ? 'FLAT' : type;
   }
 
   onSearchStateChange() {

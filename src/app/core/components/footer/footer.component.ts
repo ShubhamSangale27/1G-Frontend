@@ -37,7 +37,8 @@ import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
             <ul>
               <li><a routerLink="/search" [queryParams]="{listingType: 'SALE'}">Buy Properties</a></li>
               <li><a routerLink="/search" [queryParams]="{propertyType: 'HOUSE'}">Houses</a></li>
-              <li><a routerLink="/search" [queryParams]="{propertyType: 'APARTMENT'}">Apartments</a></li>
+              <li><a routerLink="/search" [queryParams]="{propertyType: 'FLAT'}">Flats</a></li>
+              <li><a routerLink="/search" [queryParams]="{propertyType: 'PG'}">PG</a></li>
               <li><a routerLink="/search" [queryParams]="{propertyType: 'COMMERCIAL'}">Commercial</a></li>
             </ul>
           </div>
@@ -45,7 +46,7 @@ import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
             <h4>For Renters</h4>
             <ul>
               <li><a routerLink="/search" [queryParams]="{listingType: 'RENT'}">Rent Properties</a></li>
-              <li><a routerLink="/search" [queryParams]="{listingType: 'RENT', propertyType: 'APARTMENT'}">Rent Apartments</a></li>
+              <li><a routerLink="/search" [queryParams]="{listingType: 'RENT', propertyType: 'FLAT'}">Rent Flats</a></li>
               <li><a routerLink="/search" [queryParams]="{listingType: 'RENT', propertyType: 'HOUSE'}">Rent Houses</a></li>
             </ul>
           </div>

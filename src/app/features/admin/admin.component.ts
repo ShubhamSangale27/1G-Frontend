@@ -279,6 +279,7 @@ interface MarketSnapshotAdminRow {
                   <th>Owner</th>
                   <th>Status</th>
                   <th>Featured</th>
+                  <th>Sold out</th>
                   <th>Created</th>
                   <th>Actions</th>
                 </tr>
@@ -288,12 +289,18 @@ interface MarketSnapshotAdminRow {
                   <td>
                     <a [routerLink]="['/property', p.id]" target="_blank">{{ p.title }}</a>
                     <span class="badge-new" *ngIf="isNewProperty(p.createdAt)">New</span>
+                    <span class="badge-sold-out" *ngIf="p.soldOut">Sold out</span>
                   </td>
                   <td>{{ p.ownerName }}</td>
                   <td><span class="status-badge" [class]="'status-' + (p.status || '').toLowerCase().replace('_','')">{{ p.status }}</span></td>
                   <td>
                     <button type="button" class="btn btn-outline btn-sm" (click)="toggleFeatured(p)" [disabled]="updatingFeatured[p.id]">
                       {{ p.featured ? '★ Featured' : '☆ Mark featured' }}
+                    </button>
+                  </td>
+                  <td>
+                    <button type="button" class="btn btn-outline btn-sm" (click)="toggleSoldOut(p)" [disabled]="updatingSoldOut[p.id]">
+                      {{ p.soldOut ? '✓ Sold out' : 'Mark sold out' }}
                     </button>
                   </td>
                   <td>{{ p.createdAt | date:'short' }}</td>
@@ -1280,6 +1287,7 @@ interface MarketSnapshotAdminRow {
     .all-properties-section { margin-top: 2rem; }
     .header-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
     .badge-new { background: var(--success-bg); color: var(--success-text); padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; }
+    .badge-sold-out { background: #fee2e2; color: #b91c1c; padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; margin-left: 0.5rem; }
     .new-row { background: rgba(16, 185, 129, 0.06); }
     .btn-danger { color: var(--danger, #dc2626); border-color: var(--danger, #dc2626); }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; }
@@ -1415,6 +1423,7 @@ export class AdminComponent implements OnInit {
   pageAllProperties = 0;
   loadingAllProperties = false;
   updatingFeatured: Record<number, boolean> = {};
+  updatingSoldOut: Record<number, boolean> = {};
   deleting: Record<number, boolean> = {};
   usersModalTitle = '';
   modalUsers: UserRow[] = [];
@@ -1656,6 +1665,25 @@ export class AdminComponent implements OnInit {
       error: (e) => {
         this.updatingFeatured[p.id!] = false;
         this.toast.error(e.error?.message || 'Failed');
+      },
+    });
+  }
+
+  toggleSoldOut(p: Property) {
+    if (!p.id) return;
+    this.updatingSoldOut[p.id] = true;
+    const soldOut = !p.soldOut;
+    this.api.put<Property>('/admin/properties/' + p.id + '/sold-out?soldOut=' + soldOut, {}).subscribe({
+      next: (updated) => {
+        this.updatingSoldOut[p.id!] = false;
+        p.soldOut = !!updated.soldOut;
+        this.toast.success(p.soldOut ? 'Marked as sold out' : 'Marked as available');
+        this.cdr.markForCheck();
+      },
+      error: (e) => {
+        this.updatingSoldOut[p.id!] = false;
+        this.toast.error(e.error?.message || 'Failed to update sold-out status');
+        this.cdr.markForCheck();
       },
     });
   }

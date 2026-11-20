@@ -1,5 +1,6 @@
 export type ListingType = 'SALE' | 'RENT';
-export type PropertyType = 'HOUSE' | 'APARTMENT' | 'LAND' | 'COMMERCIAL';
+/** FLAT replaces legacy APARTMENT; APARTMENT may still appear from older clients. */
+export type PropertyType = 'HOUSE' | 'FLAT' | 'LAND' | 'COMMERCIAL' | 'PG' | 'APARTMENT';
 export type PropertyStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 
 export interface PropertyImage {
@@ -39,6 +40,7 @@ export interface Property {
   visitCount?: number;
   createdAt?: string;
   featured?: boolean;
+  soldOut?: boolean;
 }
 
 export interface PageResponse<T> {

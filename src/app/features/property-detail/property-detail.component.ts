@@ -51,8 +51,9 @@ interface SiteVisitDto {
             </div>
             <div class="property-badges">
               <span class="badge badge-listing">{{ property.listingType }}</span>
-              <span class="badge badge-type">{{ property.propertyType }}</span>
+              <span class="badge badge-type">{{ propertyTypeLabel }}</span>
               <span class="badge badge-premium" *ngIf="property.isPremium">⭐ Premium</span>
+              <span class="badge badge-sold-out" *ngIf="property.soldOut">Sold Out</span>
             </div>
           </div>
           <div class="header-right">
@@ -61,7 +62,8 @@ interface SiteVisitDto {
               <div class="price-label">{{ property.listingType === 'RENT' ? 'per month' : 'total price' }}</div>
             </div>
             <div class="action-buttons">
-              <ng-container *ngIf="hasActiveSession()">
+              <p class="sold-out-notice" *ngIf="property.soldOut">This property is sold out. Site visits are not available.</p>
+              <ng-container *ngIf="hasActiveSession() && !property.soldOut">
                 <button class="btn btn-primary btn-lg" (click)="bookVisit()" *ngIf="!myVisitForProperty">
                   📅 Book Site Visit
                 </button>
@@ -83,15 +85,16 @@ interface SiteVisitDto {
               <button class="btn btn-outline" (click)="toggleWatchlist()" *ngIf="auth.user()">
                 {{ inWatchlist ? '❤️ Liked' : '🤍 Like' }}
               </button>
-              <a routerLink="/login" class="btn btn-primary btn-lg" *ngIf="!hasActiveSession()">Login to Book Visit</a>
+              <a routerLink="/login" class="btn btn-primary btn-lg" *ngIf="!hasActiveSession() && !property.soldOut">Login to Book Visit</a>
             </div>
           </div>
         </div>
 
         <div class="gallery-section">
           <ng-container *ngIf="gallerySlides.length">
-            <div class="main-image" *ngIf="currentSlide as slide">
+            <div class="main-image" *ngIf="currentSlide as slide" [class.is-sold-out]="property.soldOut">
               <span class="verified-badge">✔ Verified</span>
+              <div class="sold-out-sticker" *ngIf="property.soldOut" aria-hidden="true"><span>Sold Out</span></div>
               <ng-container [ngSwitch]="slide.kind">
                 <img
                   *ngSwitchCase="'photo'"
@@ -170,7 +173,7 @@ interface SiteVisitDto {
                   <div class="detail-icon">🏠</div>
                   <div>
                     <div class="detail-label">Type</div>
-                    <div class="detail-value">{{ property.propertyType }}</div>
+                    <div class="detail-value">{{ propertyTypeLabel }}</div>
                   </div>
                 </div>
               </div>
@@ -242,7 +245,7 @@ interface SiteVisitDto {
                   <div class="owner-role">Property Owner</div>
                 </div>
               </div>
-              <ng-container *ngIf="hasActiveSession()">
+              <ng-container *ngIf="hasActiveSession() && !property.soldOut">
                 <button class="btn btn-primary btn-block" (click)="bookVisit()" *ngIf="!myVisitForProperty">
                   📅 Book Site Visit
                 </button>
@@ -464,6 +467,19 @@ interface SiteVisitDto {
       box-shadow: var(--shadow-xl);
       border: 2px solid var(--border-light);
     }
+    .main-image.is-sold-out .hero-photo { filter: grayscale(0.35) brightness(0.85); }
+    .sold-out-sticker {
+      position: absolute; inset: 0; z-index: 4; display: grid; place-items: center;
+      pointer-events: none; background: rgba(15, 23, 42, 0.28);
+    }
+    .sold-out-sticker span {
+      padding: 0.65rem 1.5rem; border: 3px solid #dc2626; color: #dc2626;
+      background: rgba(255,255,255,0.94); font-weight: 800; letter-spacing: 0.14em;
+      text-transform: uppercase; transform: rotate(-18deg); border-radius: 4px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25); font-size: clamp(1rem, 2.5vw, 1.5rem);
+    }
+    .badge-sold-out { background: #fee2e2; color: #b91c1c; font-weight: 700; }
+    .sold-out-notice { color: #b91c1c; font-weight: 600; margin: 0 0 0.75rem; }
     .main-image .hero-media {
       width: 100%;
       height: 100%;
@@ -995,6 +1011,14 @@ export class PropertyDetailComponent implements OnInit {
     private sanitizer: DomSanitizer
   ) {}
 
+  get propertyTypeLabel(): string {
+    const t = this.property?.propertyType;
+    if (!t) return '';
+    if (t === 'APARTMENT' || t === 'FLAT') return 'Flat';
+    if (t === 'PG') return 'PG';
+    return t.charAt(0) + t.slice(1).toLowerCase();
+  }
+
   @HostListener('document:keydown.escape')
   onEscape() {
     if (this.bookVisitOpen()) {
@@ -1165,6 +1189,10 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   bookVisit() {
+    if (this.property?.soldOut) {
+      this.toast.warning('This property is sold out. Site visits cannot be booked.');
+      return;
+    }
     if (!this.hasActiveSession()) {
       this.toast.info('Please login again to book a visit.');
       return;

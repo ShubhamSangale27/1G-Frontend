@@ -17,6 +17,7 @@ import {
   PushNotificationService,
   PushTargetRole,
 } from '../../core/services/push-notification.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 interface SiteVisitRow {
   id: number;
@@ -94,13 +95,13 @@ interface MarketSnapshotAdminRow {
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IndianPricePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IndianPricePipe, TranslatePipe],
   template: `
     <div class="admin-page">
       <div class="container">
         <div class="admin-header">
           <div>
-            <h1>Admin Dashboard</h1>
+            <h1>{{ 'admin.title' | t }}</h1>
             <p>Manage properties, approvals, and site analytics</p>
           </div>
         </div>
@@ -289,7 +290,7 @@ interface MarketSnapshotAdminRow {
                   <td>
                     <a [routerLink]="['/property', p.id]" target="_blank">{{ p.title }}</a>
                     <span class="badge-new" *ngIf="isNewProperty(p.createdAt)">New</span>
-                    <span class="badge-sold-out" *ngIf="p.soldOut">Sold out</span>
+                    <span class="badge-sold-out" *ngIf="p.soldOut">{{ 'common.soldOut' | t }}</span>
                   </td>
                   <td>{{ p.ownerName }}</td>
                   <td><span class="status-badge" [class]="'status-' + (p.status || '').toLowerCase().replace('_','')">{{ p.status }}</span></td>
@@ -300,7 +301,8 @@ interface MarketSnapshotAdminRow {
                   </td>
                   <td>
                     <button type="button" class="btn btn-outline btn-sm" (click)="toggleSoldOut(p)" [disabled]="updatingSoldOut[p.id]">
-                      {{ p.soldOut ? '✓ Sold out' : 'Mark sold out' }}
+                      <ng-container *ngIf="p.soldOut">✓ {{ 'common.soldOut' | t }}</ng-container>
+                      <ng-container *ngIf="!p.soldOut">{{ 'admin.markSoldOut' | t }}</ng-container>
                     </button>
                   </td>
                   <td>{{ p.createdAt | date:'short' }}</td>

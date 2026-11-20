@@ -6,11 +6,12 @@ import { ToastrService } from 'ngx-toastr';
 import { AuthService, SignupResponse } from '../../../core/services/auth.service';
 import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.util';
 import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-logo.component';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 
 @Component({
   selector: 'app-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent],
+  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent, TranslatePipe],
   template: `
     <div class="auth-page">
       <div class="auth-background"></div>
@@ -18,47 +19,47 @@ import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-lo
         <div class="card auth-card">
           <div class="auth-header">
             <app-brand-logo variant="auth" />
-            <h1>Create Account</h1>
-            <p>Join thousands of property owners and buyers on 1Guntha</p>
+            <h1>{{ 'auth.createAccount' | t }}</h1>
+            <p>{{ 'auth.signupSub' | t }}</p>
           </div>
           @if (inlineError()) {
             <div class="auth-inline-error" role="alert">{{ inlineError() }}</div>
           }
           <form [formGroup]="form" (ngSubmit)="onSubmit()">
             <div class="form-group">
-              <label>Full Name</label>
-              <input type="text" formControlName="fullName" placeholder="Enter your full name" />
+              <label>{{ 'auth.fullName' | t }}</label>
+              <input type="text" formControlName="fullName" [placeholder]="'auth.fullNamePh' | t" />
               @if (form.get('fullName')?.invalid && form.get('fullName')?.touched) {
-                <span class="error">Full name is required</span>
+                <span class="error">{{ 'auth.fullNameRequired' | t }}</span>
               }
             </div>
             <div class="form-group">
-              <label>Email Address</label>
-              <input type="email" formControlName="email" placeholder="Enter your email" />
+              <label>{{ 'auth.email' | t }}</label>
+              <input type="email" formControlName="email" [placeholder]="'auth.emailPh' | t" />
               @if (form.get('email')?.invalid && form.get('email')?.touched) {
-                <span class="error">Valid email required</span>
+                <span class="error">{{ 'auth.emailRequired' | t }}</span>
               }
             </div>
             <div class="form-group">
-              <label>Mobile Number</label>
-              <input type="tel" formControlName="mobile" placeholder="Enter your mobile number" />
+              <label>{{ 'auth.mobile' | t }}</label>
+              <input type="tel" formControlName="mobile" [placeholder]="'auth.mobilePh' | t" />
               @if (form.get('mobile')?.invalid && form.get('mobile')?.touched) {
-                <span class="error">Valid mobile number required (10+ digits)</span>
+                <span class="error">{{ 'auth.mobileRequired' | t }}</span>
               }
             </div>
             <div class="form-group">
-              <label>Password</label>
-              <input type="password" formControlName="password" placeholder="Create a password (min 8 characters)" />
+              <label>{{ 'auth.password' | t }}</label>
+              <input type="password" formControlName="password" [placeholder]="'auth.passwordPh' | t" />
               @if (form.get('password')?.invalid && form.get('password')?.touched) {
-                <span class="error">Password must be at least 8 characters</span>
+                <span class="error">{{ 'auth.passwordMin' | t }}</span>
               }
             </div>
             <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="form.invalid || submitting()">
-              {{ submitting() ? 'Creating…' : 'Create Account' }}
+              {{ submitting() ? ('auth.creating' | t) : ('auth.createAccount' | t) }}
             </button>
           </form>
           <div class="auth-footer">
-            <p>Already have an account? <a routerLink="/login">Login here</a></p>
+            <p>{{ 'auth.haveAccount' | t }} <a routerLink="/login">{{ 'auth.loginNow' | t }}</a></p>
           </div>
         </div>
       </div>

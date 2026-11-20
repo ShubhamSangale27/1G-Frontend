@@ -9,17 +9,18 @@ import { ConfigService } from '../../core/services/config.service';
 import { ToastrService } from 'ngx-toastr';
 import { extractHttpErrorMessage } from '../../core/utils/http-error-message.util';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, CommonModule],
+  imports: [ReactiveFormsModule, RouterLink, CommonModule, TranslatePipe],
   template: `
     <div class="profile-page">
       <div class="container">
         <div class="profile-header">
           <div>
-            <h1>My Profile</h1>
+            <h1>{{ 'profile.title' | t }}</h1>
             <p>Update your photo, name, and email. Mobile number cannot be changed here.</p>
           </div>
           <a routerLink="/dashboard" class="btn btn-outline btn-sm">← Dashboard</a>

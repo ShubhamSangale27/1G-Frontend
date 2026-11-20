@@ -5,18 +5,19 @@ import { ApiService } from '../../core/services/api.service';
 import { Property, PageResponse } from '../../core/models/property.model';
 import { PropertyCardComponent } from '../../shared/property-card/property-card.component';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-my-properties',
   standalone: true,
-  imports: [CommonModule, RouterLink, PropertyCardComponent, SkeletonLoaderComponent],
+  imports: [CommonModule, RouterLink, PropertyCardComponent, SkeletonLoaderComponent, TranslatePipe],
   template: `
     <div class="my-properties-page">
       <div class="container">
         <div class="page-header">
           <div>
-            <h1>My Properties</h1>
+            <h1>{{ 'myProperties.title' | t }}</h1>
             <p>Manage your property listings</p>
           </div>
           <a routerLink="/property/new" class="btn btn-primary">

@@ -6,11 +6,12 @@ import { ToastrService } from 'ngx-toastr';
 import { AuthService } from '../../../core/services/auth.service';
 import { extractHttpErrorMessage } from '../../../core/utils/http-error-message.util';
 import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-logo.component';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent],
+  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent, TranslatePipe],
   template: `
     <div class="auth-page">
       <div class="auth-background"></div>
@@ -18,36 +19,36 @@ import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-lo
         <div class="card auth-card">
           <div class="auth-header">
             <app-brand-logo variant="auth" />
-            <h1>Welcome Back</h1>
-            <p>Login to your account to continue</p>
+            <h1>{{ 'auth.welcomeBack' | t }}</h1>
+            <p>{{ 'auth.loginSub' | t }}</p>
           </div>
           @if (inlineError()) {
             <div class="auth-inline-error" role="alert">{{ inlineError() }}</div>
           }
           <form [formGroup]="form" (ngSubmit)="onSubmit()">
             <div class="form-group">
-              <label>Email Address</label>
-              <input type="email" formControlName="email" placeholder="Enter your email" />
+              <label>{{ 'auth.email' | t }}</label>
+              <input type="email" formControlName="email" [placeholder]="'auth.emailPh' | t" />
               @if (form.get('email')?.invalid && form.get('email')?.touched) {
-                <span class="error">Valid email required</span>
+                <span class="error">{{ 'auth.emailRequired' | t }}</span>
               }
             </div>
             <div class="form-group">
-              <label>Password</label>
-              <input type="password" formControlName="password" placeholder="Enter your password" />
+              <label>{{ 'auth.password' | t }}</label>
+              <input type="password" formControlName="password" [placeholder]="'auth.passwordPh' | t" />
               @if (form.get('password')?.invalid && form.get('password')?.touched) {
-                <span class="error">Password is required</span>
+                <span class="error">{{ 'auth.passwordRequired' | t }}</span>
               }
               <div class="forgot-row">
-                <a routerLink="/forgot-password">Forgot password?</a>
+                <a routerLink="/forgot-password">{{ 'auth.forgotPassword' | t }}</a>
               </div>
             </div>
             <button type="submit" class="btn btn-primary btn-block btn-lg" [disabled]="form.invalid || submitting()">
-              {{ submitting() ? 'Signing in…' : 'Login' }}
+              {{ submitting() ? ('auth.signingIn' | t) : ('auth.login' | t) }}
             </button>
           </form>
           <div class="auth-footer">
-            <p>Don't have an account? <a routerLink="/signup">Sign up now</a></p>
+            <p>{{ 'auth.noAccount' | t }} <a routerLink="/signup">{{ 'auth.signUpNow' | t }}</a></p>
           </div>
         </div>
       </div>

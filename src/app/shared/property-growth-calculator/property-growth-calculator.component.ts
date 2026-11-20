@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription, debounceTime, switchMap, of, catchError } from 'rxjs';
 import { IndianPricePipe } from '../pipes/indian-price.pipe';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { getCitiesForState, getStateNames } from '../../core/data/indian-locations';
 import {
   MarketAreaDto,
@@ -28,37 +29,34 @@ export const FALLBACK_CAGR = 8.5;
 @Component({
   selector: 'app-property-growth-calculator',
   standalone: true,
-  imports: [CommonModule, FormsModule, IndianPricePipe],
+  imports: [CommonModule, FormsModule, IndianPricePipe, TranslatePipe],
   template: `
     <section class="growth-calc" aria-labelledby="growth-calc-title">
       <div class="container">
         <header class="growth-calc-header">
-          <h2 id="growth-calc-title" class="growth-calc-title">Property growth projector</h2>
-          <p class="growth-calc-sub">
-            Select state and city, optionally pick an admin-configured locality, and compare
-            market snapshots with your investment projection.
-          </p>
+          <h2 id="growth-calc-title" class="growth-calc-title">{{ 'growth.title' | t }}</h2>
+          <p class="growth-calc-sub">{{ 'growth.sub' | t }}</p>
         </header>
 
         <div class="growth-calc-layout">
           <div class="growth-calc-controls">
             <div class="area-row">
               <div class="control-group">
-                <label for="calc-state">State</label>
+                <label for="calc-state">{{ 'growth.state' | t }}</label>
                 <select id="calc-state" class="select" [(ngModel)]="selectedState" (ngModelChange)="onStateChange()">
-                  <option value="">Select state</option>
+                  <option value="">{{ 'growth.selectState' | t }}</option>
                   <option *ngFor="let s of states" [value]="s">{{ s }}</option>
                 </select>
               </div>
               <div class="control-group">
-                <label for="calc-city">City</label>
+                <label for="calc-city">{{ 'growth.city' | t }}</label>
                 <select id="calc-city" class="select" [(ngModel)]="selectedCity" (ngModelChange)="onCityChange()" [disabled]="!selectedState">
-                  <option value="">Select city</option>
+                  <option value="">{{ 'growth.selectCity' | t }}</option>
                   <option *ngFor="let c of cities" [value]="c">{{ c }}</option>
                 </select>
               </div>
               <div class="control-group">
-                <label for="calc-loc">Locality (optional)</label>
+                <label for="calc-loc">{{ 'growth.locality' | t }}</label>
                 <select id="calc-loc" class="select" [(ngModel)]="selectedLocationId" (ngModelChange)="onLocationChange()"
                   [disabled]="!selectedCity || loadingLocalities">
                   <option [ngValue]="null">{{ localitySelectLabel }}</option>
@@ -79,7 +77,7 @@ export const FALLBACK_CAGR = 8.5;
 
             <div class="control-group">
               <div class="control-label-row">
-                <label for="inv-amount">Initial investment</label>
+                <label for="inv-amount">{{ 'growth.initial' | t }}</label>
                 <div class="control-input-wrap">
                   <span class="prefix">₹</span>
                   <input id="inv-amount" type="number" [ngModel]="investmentAmount" (ngModelChange)="setInvestment($event)"
@@ -87,12 +85,12 @@ export const FALLBACK_CAGR = 8.5;
                 </div>
               </div>
               <input type="range" class="slider" [ngModel]="investmentAmount" (ngModelChange)="setInvestment($event)"
-                [min]="minInvestment" [max]="maxInvestment" step="50000" aria-label="Initial investment slider" />
+                [min]="minInvestment" [max]="maxInvestment" step="50000" [attr.aria-label]="'growth.initial' | t" />
             </div>
 
             <div class="control-group">
               <div class="control-label-row">
-                <label for="monthly-amt">Monthly add-on</label>
+                <label for="monthly-amt">{{ 'growth.monthly' | t }}</label>
                 <div class="control-input-wrap">
                   <span class="prefix">₹</span>
                   <input id="monthly-amt" type="number" [ngModel]="monthlyContribution" (ngModelChange)="setMonthly($event)"
@@ -100,12 +98,12 @@ export const FALLBACK_CAGR = 8.5;
                 </div>
               </div>
               <input type="range" class="slider" [ngModel]="monthlyContribution" (ngModelChange)="setMonthly($event)"
-                [min]="minMonthly" [max]="maxMonthly" step="1000" aria-label="Monthly contribution slider" />
+                [min]="minMonthly" [max]="maxMonthly" step="1000" [attr.aria-label]="'growth.monthly' | t" />
             </div>
 
             <div class="control-group">
               <div class="control-label-row">
-                <label for="tenure-yrs">Horizon (years)</label>
+                <label for="tenure-yrs">{{ 'growth.horizon' | t }}</label>
                 <div class="control-input-wrap">
                   <input id="tenure-yrs" type="number" [ngModel]="years" (ngModelChange)="setYears($event)"
                     [min]="minYears" [max]="maxYears" step="1" />
@@ -113,12 +111,12 @@ export const FALLBACK_CAGR = 8.5;
                 </div>
               </div>
               <input type="range" class="slider" [ngModel]="years" (ngModelChange)="setYears($event)"
-                [min]="minYears" [max]="maxYears" step="1" aria-label="Investment horizon slider" />
+                [min]="minYears" [max]="maxYears" step="1" [attr.aria-label]="'growth.horizon' | t" />
             </div>
 
             <div class="control-group">
               <div class="control-label-row">
-                <label for="user-rate">Your expected appreciation</label>
+                <label for="user-rate">{{ 'growth.expected' | t }}</label>
                 <div class="control-input-wrap">
                   <input id="user-rate" type="number" [ngModel]="expectedRatePct" (ngModelChange)="setRate($event)"
                     [min]="minRate" [max]="maxRate" step="0.1" />
@@ -126,32 +124,32 @@ export const FALLBACK_CAGR = 8.5;
                 </div>
               </div>
               <input type="range" class="slider" [ngModel]="expectedRatePct" (ngModelChange)="setRate($event)"
-                [min]="minRate" [max]="maxRate" step="0.1" aria-label="Expected appreciation rate slider" />
+                [min]="minRate" [max]="maxRate" step="0.1" [attr.aria-label]="'growth.expected' | t" />
             </div>
 
             <div class="summary-grid">
               <div class="summary-item">
-                <span class="summary-label">Area CAGR ({{ selectedRange }})</span>
+                <span class="summary-label">{{ 'growth.areaCagr' | t:{ range: selectedRange } }}</span>
                 <strong class="summary-value">{{ regionalRatePct | number:'1.1-2' }}% p.a.</strong>
               </div>
               <div class="summary-item">
-                <span class="summary-label">Avg price / sqft</span>
+                <span class="summary-label">{{ 'growth.avgPsf' | t }}</span>
                 <strong class="summary-value">{{ latestAvgPricePerSqft != null ? (latestAvgPricePerSqft | indianPrice) : '—' }}</strong>
               </div>
               <div class="summary-item">
-                <span class="summary-label">Range return</span>
+                <span class="summary-label">{{ 'growth.rangeReturn' | t }}</span>
                 <strong class="summary-value">{{ rangeReturnPct != null ? (rangeReturnPct | number:'1.1-2') + '%' : '—' }}</strong>
               </div>
               <div class="summary-item">
-                <span class="summary-label">Rental yield</span>
+                <span class="summary-label">{{ 'growth.rentalYield' | t }}</span>
                 <strong class="summary-value">{{ latestRentalYieldPct != null ? (latestRentalYieldPct | number:'1.1-2') + '%' : '—' }}</strong>
               </div>
               <div class="summary-item">
-                <span class="summary-label">Area projection</span>
+                <span class="summary-label">{{ 'growth.areaProjection' | t }}</span>
                 <strong class="summary-value regional">{{ regionalFinal | indianPrice }}</strong>
               </div>
               <div class="summary-item">
-                <span class="summary-label">Your portfolio</span>
+                <span class="summary-label">{{ 'growth.yourPortfolio' | t }}</span>
                 <strong class="summary-value user">{{ userFinal | indianPrice }}</strong>
               </div>
             </div>
@@ -166,7 +164,7 @@ export const FALLBACK_CAGR = 8.5;
           </div>
 
           <div class="growth-calc-chart" role="img" [attr.aria-label]="chartAriaLabel">
-            <div class="loading-overlay" *ngIf="loading">Loading market data…</div>
+            <div class="loading-overlay" *ngIf="loading">{{ 'growth.loading' | t }}</div>
             <svg class="chart-svg" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
               <g *ngFor="let gy of yGrid" class="grid-line">
                 <line [attr.x1]="pad.l" [attr.x2]="innerW + pad.l" [attr.y1]="gy.y" [attr.y2]="gy.y" />
@@ -184,9 +182,9 @@ export const FALLBACK_CAGR = 8.5;
               <circle *ngFor="let p of chartDots" class="dot-user" [attr.cx]="p.ux" [attr.cy]="p.uy" r="3.5" />
             </svg>
             <div class="chart-legend">
-              <span class="legend-item regional"><i></i> Area market @ {{ regionalRatePct | number:'1.1-2' }}%</span>
-              <span class="legend-item user"><i></i> Your investment @ {{ expectedRatePct }}%</span>
-              <span class="legend-item split" *ngIf="forecastSplitX != null"><i></i> Forecast →</span>
+              <span class="legend-item regional"><i></i> {{ 'growth.legendArea' | t:{ rate: (regionalRatePct | number:'1.1-2') } }}</span>
+              <span class="legend-item user"><i></i> {{ 'growth.legendUser' | t:{ rate: expectedRatePct } }}</span>
+              <span class="legend-item split" *ngIf="forecastSplitX != null"><i></i> {{ 'growth.forecast' | t }}</span>
             </div>
           </div>
         </div>

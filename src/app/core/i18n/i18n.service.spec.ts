@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import { I18nService } from './i18n.service';
 
 describe('I18nService', () => {
@@ -5,7 +6,8 @@ describe('I18nService', () => {
 
   beforeEach(() => {
     localStorage.removeItem('1g_lang');
-    service = new I18nService();
+    TestBed.configureTestingModule({ providers: [I18nService] });
+    service = TestBed.inject(I18nService);
   });
 
   it('defaults to English', () => {
@@ -27,7 +29,10 @@ describe('I18nService', () => {
 
   it('persists language preference', () => {
     service.setLanguage('hi');
-    const again = new I18nService();
+    expect(localStorage.getItem('1g_lang')).toBe('hi');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [I18nService] });
+    const again = TestBed.inject(I18nService);
     expect(again.lang()).toBe('hi');
   });
 
@@ -47,5 +52,17 @@ describe('I18nService', () => {
     service.setLanguage('hi');
     service.setLanguage('fr' as any);
     expect(service.lang()).toBe('hi');
+  });
+
+  it('interpolates template params', () => {
+    expect(service.t('search.found', { count: 12 })).toBe('12 properties found');
+    service.setLanguage('hi');
+    expect(service.t('search.found', { count: 12 })).toContain('12');
+  });
+
+  it('bumps revision on language change for site-wide pipe refresh', () => {
+    const before = service.revision();
+    service.setLanguage('mr');
+    expect(service.revision()).toBeGreaterThan(before);
   });
 });

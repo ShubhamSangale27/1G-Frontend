@@ -7,6 +7,7 @@ import { Property, PageResponse } from '../../core/models/property.model';
 import { getStateNames, getCitiesForState } from '../../core/data/indian-locations';
 import { PropertyCardComponent } from '../../shared/property-card/property-card.component';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Price range for slider: 0 to 50 Crore, step 1 Lakh */
 const PRICE_RANGE_MIN = 0;
@@ -16,66 +17,66 @@ const PRICE_STEP = 100_000;
 @Component({
   selector: 'app-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, PropertyCardComponent, SkeletonLoaderComponent],
+  imports: [CommonModule, FormsModule, PropertyCardComponent, SkeletonLoaderComponent, TranslatePipe],
   template: `
     <div class="search-page">
       <div class="search-header">
         <div class="container">
-          <h1>Find Your Perfect Property</h1>
-          <p>Search from thousands of verified properties</p>
+          <h1>{{ 'search.title' | t }}</h1>
+          <p>{{ 'search.subtitle' | t }}</p>
         </div>
       </div>
       <div class="container search-layout">
         <aside class="filters-sidebar">
           <div class="filters-card card">
             <div class="filters-header">
-              <h3>Filters</h3>
-              <button class="btn-link" (click)="clearFilters()">Clear All</button>
+              <h3>{{ 'search.filters' | t }}</h3>
+              <button class="btn-link" (click)="clearFilters()">{{ 'common.clearAll' | t }}</button>
             </div>
             <div class="filter-section">
-              <label>Listing Type</label>
+              <label>{{ 'search.listingType' | t }}</label>
               <div class="filter-options">
                 <label class="radio-option">
                   <input type="radio" name="listing" value="" [(ngModel)]="listingType" (change)="search()" />
-                  <span>All</span>
+                  <span>{{ 'common.all' | t }}</span>
                 </label>
                 <label class="radio-option">
                   <input type="radio" name="listing" value="SALE" [(ngModel)]="listingType" (change)="search()" />
-                  <span>Buy</span>
+                  <span>{{ 'common.buy' | t }}</span>
                 </label>
                 <label class="radio-option">
                   <input type="radio" name="listing" value="RENT" [(ngModel)]="listingType" (change)="search()" />
-                  <span>Rent</span>
+                  <span>{{ 'common.rent' | t }}</span>
                 </label>
               </div>
             </div>
             <div class="filter-section">
-              <label>Property Type</label>
+              <label>{{ 'search.propertyType' | t }}</label>
               <select [(ngModel)]="propertyType" (change)="search()">
-                <option value="">All Types</option>
-                <option value="HOUSE">House</option>
-                <option value="FLAT">Flat</option>
-                <option value="PG">PG</option>
-                <option value="LAND">Land</option>
-                <option value="COMMERCIAL">Commercial</option>
+                <option value="">{{ 'propertyType.all' | t }}</option>
+                <option value="HOUSE">{{ 'propertyType.HOUSE' | t }}</option>
+                <option value="FLAT">{{ 'propertyType.FLAT' | t }}</option>
+                <option value="PG">{{ 'propertyType.PG' | t }}</option>
+                <option value="LAND">{{ 'propertyType.LAND' | t }}</option>
+                <option value="COMMERCIAL">{{ 'propertyType.COMMERCIAL' | t }}</option>
               </select>
             </div>
             <div class="filter-section">
-              <label>State</label>
+              <label>{{ 'search.state' | t }}</label>
               <select [(ngModel)]="state" (change)="onSearchStateChange()">
-                <option value="">All States</option>
+                <option value="">{{ 'search.allStates' | t }}</option>
                 <option *ngFor="let s of stateNames" [value]="s">{{ s }}</option>
               </select>
             </div>
             <div class="filter-section">
-              <label>City</label>
+              <label>{{ 'search.city' | t }}</label>
               <select [(ngModel)]="city" (change)="search()">
-                <option value="">All Cities</option>
+                <option value="">{{ 'search.allCities' | t }}</option>
                 <option *ngFor="let c of citiesForState" [value]="c">{{ c }}</option>
               </select>
             </div>
             <div class="filter-section">
-              <label>Price Range</label>
+              <label>{{ 'search.priceRange' | t }}</label>
               <div class="price-range-slider">
                 <div class="price-range-labels">
                   <span>{{ formatPriceLabel(priceSliderMin) }}</span>
@@ -91,36 +92,36 @@ const PRICE_STEP = 100_000;
               </div>
             </div>
             <div class="filter-section">
-              <label>Bedrooms</label>
+              <label>{{ 'search.bedrooms' | t }}</label>
               <select [(ngModel)]="bedrooms" (change)="search()">
-                <option [value]="null">Any</option>
-                <option [value]="1">1+ BHK</option>
-                <option [value]="2">2+ BHK</option>
-                <option [value]="3">3+ BHK</option>
-                <option [value]="4">4+ BHK</option>
-                <option [value]="5">5+ BHK</option>
+                <option [value]="null">{{ 'common.any' | t }}</option>
+                <option [value]="1">{{ 'search.bhkPlus' | t:{ n: 1 } }}</option>
+                <option [value]="2">{{ 'search.bhkPlus' | t:{ n: 2 } }}</option>
+                <option [value]="3">{{ 'search.bhkPlus' | t:{ n: 3 } }}</option>
+                <option [value]="4">{{ 'search.bhkPlus' | t:{ n: 4 } }}</option>
+                <option [value]="5">{{ 'search.bhkPlus' | t:{ n: 5 } }}</option>
               </select>
             </div>
             <div class="filter-section">
-              <label>Area (sq.ft)</label>
-              <input type="number" [(ngModel)]="minArea" placeholder="Minimum area" (keyup.enter)="search()" />
+              <label>{{ 'search.area' | t }}</label>
+              <input type="number" [(ngModel)]="minArea" [placeholder]="'search.minAreaPh' | t" (keyup.enter)="search()" />
             </div>
-            <button class="btn btn-primary btn-block" (click)="search()">Apply Filters</button>
+            <button class="btn btn-primary btn-block" (click)="search()">{{ 'common.apply' | t }}</button>
           </div>
         </aside>
         <main class="results-main">
           <div class="results-header">
             <div>
-              <h2>Search Results</h2>
-              <p class="results-count">{{ totalElements }} properties found</p>
+              <h2>{{ 'search.results' | t }}</h2>
+              <p class="results-count">{{ 'search.found' | t:{ count: totalElements } }}</p>
             </div>
             <div class="sort-options">
-              <label>Sort by:</label>
+              <label>{{ 'search.sortBy' | t }}</label>
               <select [(ngModel)]="sortBy" (change)="search()">
-                <option value="createdAt,desc">Newest First</option>
-                <option value="price,asc">Price: Low to High</option>
-                <option value="price,desc">Price: High to Low</option>
-                <option value="areaSqft,desc">Largest First</option>
+                <option value="createdAt,desc">{{ 'search.sort.newest' | t }}</option>
+                <option value="price,asc">{{ 'search.sort.priceAsc' | t }}</option>
+                <option value="price,desc">{{ 'search.sort.priceDesc' | t }}</option>
+                <option value="areaSqft,desc">{{ 'search.sort.largest' | t }}</option>
               </select>
             </div>
           </div>
@@ -139,19 +140,19 @@ const PRICE_STEP = 100_000;
           </div>
           <div class="empty-state" *ngIf="!loading && !properties.length && searched">
             <div class="empty-icon">🏠</div>
-            <h3>No properties found</h3>
-            <p>Try adjusting your filters to see more results</p>
-            <button class="btn btn-outline" (click)="clearFilters()">Clear Filters</button>
+            <h3>{{ 'search.noResults' | t }}</h3>
+            <p>{{ 'search.tryAdjust' | t }}</p>
+            <button class="btn btn-outline" (click)="clearFilters()">{{ 'search.clearFilters' | t }}</button>
           </div>
           <div class="pagination" *ngIf="totalPages > 1 && !loading">
             <button class="btn btn-outline" [disabled]="page === 0" (click)="goPage(page - 1)">
-              ← Previous
+              ← {{ 'common.previous' | t }}
             </button>
             <div class="page-info">
-              Page <strong>{{ page + 1 }}</strong> of <strong>{{ totalPages }}</strong>
+              {{ 'common.pageOf' | t:{ page: page + 1, total: totalPages } }}
             </div>
             <button class="btn btn-outline" [disabled]="page >= totalPages - 1" (click)="goPage(page + 1)">
-              Next →
+              {{ 'common.next' | t }} →
             </button>
           </div>
         </main>

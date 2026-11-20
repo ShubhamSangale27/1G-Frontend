@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef, NgZone, ElementRef, ViewChild } f
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 interface FaqItem {
   id: number;
@@ -26,7 +27,7 @@ interface ChatMessage {
 @Component({
   selector: 'app-faq-chatbot',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   template: `
     <div class="faq-chatbot" [class.is-open]="open">
       <button
@@ -34,7 +35,7 @@ interface ChatMessage {
         class="faq-fab"
         (click)="toggle()"
         [attr.aria-expanded]="open"
-        [attr.aria-label]="open ? 'Close help chat' : 'Chat with 1Guntha help'"
+        [attr.aria-label]="open ? ('faq.close' | t) : ('faq.open' | t)"
       >
         <svg *ngIf="!open" class="fab-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/>
@@ -48,19 +49,19 @@ interface ChatMessage {
         <span class="fab-pulse" *ngIf="!open" aria-hidden="true"></span>
       </button>
 
-      <div class="faq-panel" *ngIf="open" role="dialog" aria-label="1Guntha FAQ help chat">
+      <div class="faq-panel" *ngIf="open" role="dialog" [attr.aria-label]="'faq.title' | t">
         <div class="faq-panel-header">
           <div class="faq-agent">
             <div class="faq-avatar" aria-hidden="true">1G</div>
             <div>
-              <div class="faq-title">1Guntha Help</div>
+              <div class="faq-title">{{ 'faq.title' | t }}</div>
               <div class="faq-subtitle">
                 <span class="online-dot" aria-hidden="true"></span>
-                Online · Usually replies instantly
+                {{ 'faq.online' | t }}
               </div>
             </div>
           </div>
-          <button type="button" class="faq-close" (click)="toggle()" aria-label="Close chat">×</button>
+          <button type="button" class="faq-close" (click)="toggle()" [attr.aria-label]="'faq.close' | t">×</button>
         </div>
 
         <div class="faq-chips" *ngIf="suggestions.length">
@@ -93,11 +94,11 @@ interface ChatMessage {
             class="faq-input"
             [(ngModel)]="draft"
             name="faqDraft"
-            placeholder="Ask about buying, renting, visits…"
+            [placeholder]="'faq.placeholder' | t"
             [disabled]="sending"
             autocomplete="off"
           />
-          <button type="submit" class="faq-send" [disabled]="sending || !draft.trim()" aria-label="Send message">
+          <button type="submit" class="faq-send" [disabled]="sending || !draft.trim()" [attr.aria-label]="'faq.send' | t">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
             </svg>

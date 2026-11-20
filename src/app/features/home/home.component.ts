@@ -11,6 +11,8 @@ import { PropertyCardComponent } from '../../shared/property-card/property-card.
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { PropertyGrowthCalculatorComponent } from '../../shared/property-growth-calculator/property-growth-calculator.component';
 import { CarouselModule } from 'ngx-bootstrap/carousel';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 interface HomeCarouselSlide {
   id?: number;
@@ -23,7 +25,7 @@ interface HomeCarouselSlide {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, PropertyCardComponent, SkeletonLoaderComponent, PropertyGrowthCalculatorComponent, CarouselModule],
+  imports: [CommonModule, RouterLink, FormsModule, PropertyCardComponent, SkeletonLoaderComponent, PropertyGrowthCalculatorComponent, CarouselModule, TranslatePipe],
   template: `
     <section class="home-carousel-wrap" aria-label="Featured banners">
       <carousel
@@ -35,10 +37,10 @@ interface HomeCarouselSlide {
         [showIndicators]="displayCarouselSlides.length > 1">
         <slide *ngFor="let slide of displayCarouselSlides">
           <a *ngIf="slide.linkUrl" [href]="slide.linkUrl" target="_blank" rel="noopener" class="carouselimg">
-            <img [src]="slide.resolvedImageUrl" [alt]="slide.altText || 'Homepage banner'" />
+            <img [src]="slide.resolvedImageUrl" [alt]="slide.altText || ('home.bannerAlt' | t)" />
           </a>
           <div *ngIf="!slide.linkUrl" class="carouselimg">
-            <img [src]="slide.resolvedImageUrl" [alt]="slide.altText || 'Homepage banner'" />
+            <img [src]="slide.resolvedImageUrl" [alt]="slide.altText || ('home.bannerAlt' | t)" />
           </div>
         </slide>
       </carousel>
@@ -55,14 +57,14 @@ interface HomeCarouselSlide {
 		<span class="" onClick="hidepopup1()">x</span>
 		  </div>
 		  <div class="formdata">
-				  <label>Enter Amount:</label><br />
+				  <label>{{ 'home.loan.amount' | t }}</label><br />
 				  <input type="text" id="initamtid" name="name" size="12" maxlength="32" value="300000" /><br /><br />
-				  <label>Rate of Intrest</label><br />
+				  <label>{{ 'home.loan.rate' | t }}</label><br />
 				  <input type="text" id="roiid" name="roi" size="4" value="12" />%<br /><br />
-					<label>Enter Tenure in Years</label><br />
+					<label>{{ 'home.loan.tenure' | t }}</label><br />
 				  <input type="text" id="tenureid" name="tenure" size="4" maxlength="12" value="3"/><br /><br />
-				  <input type="submit" class="btn btn-primary btn-sm" value="Calculate!" onClick="calcval()"/><br /><br />
-				  <label>Final Amount will be</label><br />
+				  <input type="submit" class="btn btn-primary btn-sm" [value]="'home.loan.calculate' | t" onClick="calcval()"/><br /><br />
+				  <label>{{ 'home.loan.final' | t }}</label><br />
 				  <input type="text" name="finalamt" id="finalamtid" size="16" maxlength="12" disabled/><br />
 		  </div>
 	  </div>
@@ -72,34 +74,34 @@ interface HomeCarouselSlide {
     <section class="hero">
       <div class="hero-bg"></div>
       <div class="container hero-content">
-        <h1>Find Your Dream Property</h1>
-        <p class="hero-subtitle">Discover the perfect home, apartment, or commercial space in India. Buy, sell, or rent with confidence on 1Guntha.</p>
+        <h1>{{ 'home.heroTitle' | t }}</h1>
+        <p class="hero-subtitle">{{ 'home.heroSub' | t }}</p>
         <div class="hero-search">
           <div class="search-tabs">
-            <button [class.active]="searchType === 'buy'" (click)="searchType = 'buy'">Buy</button>
-            <button [class.active]="searchType === 'rent'" (click)="searchType = 'rent'">Rent</button>
+            <button [class.active]="searchType === 'buy'" (click)="searchType = 'buy'">{{ 'common.buy' | t }}</button>
+            <button [class.active]="searchType === 'rent'" (click)="searchType = 'rent'">{{ 'common.rent' | t }}</button>
           </div>
           <div class="search-box">
-            <input type="text" placeholder="Search by location, city, or locality..." [(ngModel)]="searchQuery" />
+            <input type="text" [placeholder]="'home.searchPlaceholder' | t" [(ngModel)]="searchQuery" />
             <button class="btn btn-primary" (click)="goToSearch()">
-              <span>🔍</span> Search
+              <span>🔍</span> {{ 'common.search' | t }}
             </button>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="services-section" aria-label="Home improvement services">
+    <section class="services-section" [attr.aria-label]="'home.servicesHeading' | t">
       <div class="container service-cards-wrap">
-        <h2 class="services-heading">Home services</h2>
-        <p class="services-sub">Quality partners for POP, paint, electrical, construction, and more — request a quote in one tap.</p>
+        <h2 class="services-heading">{{ 'home.servicesHeading' | t }}</h2>
+        <p class="services-sub">{{ 'home.servicesSub' | t }}</p>
         <div class="service-cards-grid">
           <article class="service-card" *ngFor="let s of services">
             <div class="service-card-inner">
-              <img [src]="'assets/images/' + s.img" [alt]="s.title" class="service-card-icon" width="56" height="56" loading="lazy" />
-              <h3 class="service-card-title">{{ s.title }}</h3>
-              <p class="service-card-desc">{{ s.description }}</p>
-              <button type="button" class="btn btn-primary btn-sm service-card-cta" (click)="openQuotePopup()">Get Quote</button>
+              <img [src]="'assets/images/' + s.img" [alt]="s.titleKey | t" class="service-card-icon" width="56" height="56" loading="lazy" />
+              <h3 class="service-card-title">{{ s.titleKey | t }}</h3>
+              <p class="service-card-desc">{{ s.descKey | t }}</p>
+              <button type="button" class="btn btn-primary btn-sm service-card-cta" (click)="openQuotePopup()">{{ 'home.getQuote' | t }}</button>
             </div>
           </article>
         </div>
@@ -114,32 +116,26 @@ interface HomeCarouselSlide {
 		  <div class="formdata">
 				 <form action="/action_page.php">
 						<div class="mb-3 mt-3">
-						<label for="name" class="form-label">Your Name: </label>
-						<input type="name" size="12" class="form-control" id="name" placeholder="Enter name" name="namename">
+						<label for="name" class="form-label">{{ 'home.quote.name' | t }} </label>
+						<input type="name" size="12" class="form-control" id="name" [placeholder]="'home.quote.namePh' | t" name="namename">
 					  </div>
 					 
 					  <div class="mb-3 mt-3">
-						<label for="email"  class="form-label">Email: </label>
-						<input type="email" size="12" class="form-control" id="email" placeholder="Enter email" name="email">
+						<label for="email"  class="form-label">{{ 'home.quote.email' | t }} </label>
+						<input type="email" size="12" class="form-control" id="email" [placeholder]="'home.quote.emailPh' | t" name="email">
 					  </div>
 					   
 					  
 					  <div class="mb-3 mt-3">
-						<label for="number"  class="form-label">Your Mobile Number: </label>
-						<input type="number" size="12" class="form-control" id="number" placeholder="Enter number" name="number">
+						<label for="number"  class="form-label">{{ 'home.quote.mobile' | t }} </label>
+						<input type="number" size="12" class="form-control" id="number" [placeholder]="'home.quote.mobilePh' | t" name="number">
 					  </div>
 					   
 
-					  <label for="comment" class="form-label">Comments: </label>
+					  <label for="comment" class="form-label">{{ 'home.quote.comments' | t }} </label>
 						<textarea class="form-control" rows="5" id="comment" name="text"></textarea>
-					  
-
-					  <!-- <a href="https://wa.me/8585838365" class="whatsapp-button" target="_blank" rel="noopener noreferrer">
-						  <i class="fa fa-whatsapp"></i>
-						  <span>Enquiry on WhatsApp</span>
-						</a> -->
 						<br/>
-						<button onclick="send_handle()" class="btn btn-success">Enquiry on WhatsApp</button>
+						<button onclick="send_handle()" class="btn btn-success">{{ 'home.quote.whatsapp' | t }}</button>
 					</form>
 				
 		  </div>
@@ -154,22 +150,22 @@ interface HomeCarouselSlide {
           <div class="stat-card">
             <div class="stat-icon">🏠</div>
             <div class="stat-value">10,000+</div>
-            <div class="stat-label">Properties</div>
+            <div class="stat-label">{{ 'home.stat.properties' | t }}</div>
           </div>
           <div class="stat-card">
             <div class="stat-icon">👥</div>
             <div class="stat-value">50,000+</div>
-            <div class="stat-label">Happy Customers</div>
+            <div class="stat-label">{{ 'home.stat.customers' | t }}</div>
           </div>
           <div class="stat-card">
             <div class="stat-icon">🏆</div>
             <div class="stat-value">500+</div>
-            <div class="stat-label">Verified Agents</div>
+            <div class="stat-label">{{ 'home.stat.agents' | t }}</div>
           </div>
           <div class="stat-card">
             <div class="stat-icon">⭐</div>
             <div class="stat-value">4.8/5</div>
-            <div class="stat-label">Average Rating</div>
+            <div class="stat-label">{{ 'home.stat.rating' | t }}</div>
           </div>
         </div>
       </div>
@@ -177,32 +173,32 @@ interface HomeCarouselSlide {
 
     <section class="categories-section">
       <div class="container">
-        <h2 class="section-title">Browse by Category</h2>
+        <h2 class="section-title">{{ 'home.categories' | t }}</h2>
         <div class="categories-grid">
           <a routerLink="/search" [queryParams]="{propertyType: 'HOUSE'}" class="category-card">
             <div class="category-icon">🏘️</div>
-            <h5>Houses</h5>
-            <p>Independent houses and villas</p>
+            <h5>{{ 'home.cat.houses' | t }}</h5>
+            <p>{{ 'home.cat.housesDesc' | t }}</p>
           </a>
           <a routerLink="/search" [queryParams]="{propertyType: 'FLAT'}" class="category-card">
             <div class="category-icon">🏢</div>
-            <h5>Flats</h5>
-            <p>Flats and apartments</p>
+            <h5>{{ 'home.cat.flats' | t }}</h5>
+            <p>{{ 'home.cat.flatsDesc' | t }}</p>
           </a>
           <a routerLink="/search" [queryParams]="{propertyType: 'PG'}" class="category-card">
             <div class="category-icon">🛏️</div>
-            <h5>PG</h5>
-            <p>Paying guest accommodations</p>
+            <h5>{{ 'home.cat.pg' | t }}</h5>
+            <p>{{ 'home.cat.pgDesc' | t }}</p>
           </a>
           <a routerLink="/search" [queryParams]="{propertyType: 'LAND'}" class="category-card">
             <div class="category-icon">🌾</div>
-            <h5>Land</h5>
-            <p>Plots and land parcels</p>
+            <h5>{{ 'home.cat.land' | t }}</h5>
+            <p>{{ 'home.cat.landDesc' | t }}</p>
           </a>
           <a routerLink="/search" [queryParams]="{propertyType: 'COMMERCIAL'}" class="category-card">
             <div class="category-icon">🏬</div>
-            <h5>Commercial</h5>
-            <p>Shops, offices, and more</p>
+            <h5>{{ 'home.cat.commercial' | t }}</h5>
+            <p>{{ 'home.cat.commercialDesc' | t }}</p>
           </a>
         </div>
       </div>
@@ -215,10 +211,10 @@ interface HomeCarouselSlide {
       <div class="container">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Featured Properties</h2>
-            <p class="section-subtitle">Handpicked properties just for you</p>
+            <h2 class="section-title">{{ 'home.featured' | t }}</h2>
+            <p class="section-subtitle">{{ 'home.featuredSub' | t }}</p>
           </div>
-          <a routerLink="/search" class="btn btn-outline">View All</a>
+          <a routerLink="/search" class="btn btn-outline">{{ 'common.viewAll' | t }}</a>
         </div>
         <div class="grid grid-3" *ngIf="featured.length && !loading">
           <app-property-card *ngFor="let p of featured" [property]="p" />
@@ -232,16 +228,16 @@ interface HomeCarouselSlide {
             </div>
           </div>
         </div>
-        <p *ngIf="!loading && !featured.length" class="empty-state">No featured properties available at the moment.</p>
+        <p *ngIf="!loading && !featured.length" class="empty-state">{{ 'home.featuredEmpty' | t }}</p>
       </div>
     </section>
 
     <section class="cta-section">
       <div class="container">
         <div class="cta-card">
-          <h2>Ready to List Your Property?</h2>
-          <p>Join thousands of property owners on 1Guntha and reach millions of potential buyers across India</p>
-          <a routerLink="/signup" class="btn btn-primary btn-lg">Get Started Free</a>
+          <h2>{{ 'home.ctaTitle' | t }}</h2>
+          <p>{{ 'home.ctaSub' | t }}</p>
+          <a routerLink="/signup" class="btn btn-primary btn-lg">{{ 'home.ctaButton' | t }}</a>
         </div>
       </div>
     </section>
@@ -743,68 +739,24 @@ export class HomeComponent implements OnInit {
     { imageUrl: 'assets/images/carousel/3.jpg', resolvedImageUrl: 'assets/images/carousel/3.jpg', altText: 'Banner 3' },
   ];
 
-  readonly services: { img: string; title: string; description: string }[] = [
-    {
-      img: 'poplogo.png',
-      title: 'POP service',
-      description:
-        'Modern POP (Plaster of Paris) designs blend architectural elegance with functional lighting to transform any ceiling into a masterpiece.',
-    },
-    {
-      img: 'paintlogo.png',
-      title: 'Paint service',
-      description:
-        'The professional touch — transforming spaces with a stroke of perfection. Quality finishes that stand the test of time.',
-    },
-    {
-      img: 'lightlogo.png',
-      title: 'Electrical service',
-      description:
-        'We craft lighting solutions that transform ordinary spaces into extraordinary experiences. From concept to installation, brilliance in every corner.',
-    },
-    {
-      img: 'constructionlogo.png',
-      title: 'Construction & reconstruction',
-      description:
-        'Reconstruction restores what matters most — your space, your comfort, your peace of mind. We rebuild with precision, care, and craftsmanship you can trust.',
-    },
-    {
-      img: 'doorlogo.png',
-      title: 'Door and framing',
-      description:
-        'Precision-built doors and framing that define the character of every space — strength, style, and craftsmanship at every threshold.',
-    },
-    {
-      img: 'tileslogo.png',
-      title: 'Tiles service',
-      description:
-        'Exquisite design and superior quality for floors and walls — surfaces that inspire and endure.',
-    },
-    {
-      img: 'hardwarelogo.png',
-      title: 'Hardware service',
-      description:
-        'Premium fittings, fixtures, and accessories — from the smallest hinge to the grandest finish, quality you can see and feel.',
-    },
-    {
-      img: 'fabrication.png',
-      title: 'Fabrication service',
-      description:
-        'Precision-engineered metal and structural solutions — fabricated with skill, accuracy, and durability that stands the test of time.',
-    },
-    {
-      img: 'furniturelogo.png',
-      title: 'Furniture service',
-      description:
-        'Beautifully crafted pieces for warmth, character, and purpose — from custom designs to timeless classics built for generations.',
-    },
+  readonly services: { img: string; titleKey: string; descKey: string }[] = [
+    { img: 'poplogo.png', titleKey: 'home.service.pop.title', descKey: 'home.service.pop.desc' },
+    { img: 'paintlogo.png', titleKey: 'home.service.paint.title', descKey: 'home.service.paint.desc' },
+    { img: 'lightlogo.png', titleKey: 'home.service.electrical.title', descKey: 'home.service.electrical.desc' },
+    { img: 'constructionlogo.png', titleKey: 'home.service.construction.title', descKey: 'home.service.construction.desc' },
+    { img: 'doorlogo.png', titleKey: 'home.service.door.title', descKey: 'home.service.door.desc' },
+    { img: 'tileslogo.png', titleKey: 'home.service.tiles.title', descKey: 'home.service.tiles.desc' },
+    { img: 'hardwarelogo.png', titleKey: 'home.service.hardware.title', descKey: 'home.service.hardware.desc' },
+    { img: 'fabrication.png', titleKey: 'home.service.fabrication.title', descKey: 'home.service.fabrication.desc' },
+    { img: 'furniturelogo.png', titleKey: 'home.service.furniture.title', descKey: 'home.service.furniture.desc' },
   ];
 
   constructor(
     private api: ApiService,
     private config: ConfigService,
     private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    public i18n: I18nService,
   ) {}
 
   openQuotePopup(): void {

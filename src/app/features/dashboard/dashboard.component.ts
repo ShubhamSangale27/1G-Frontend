@@ -11,6 +11,7 @@ import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-l
 import { ToastrService } from 'ngx-toastr';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 interface SiteVisit {
   id: number;
@@ -30,17 +31,17 @@ interface Alert {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, SkeletonLoaderComponent, IndianPricePipe],
+  imports: [CommonModule, FormsModule, RouterLink, SkeletonLoaderComponent, IndianPricePipe, TranslatePipe],
   template: `
     <div class="dashboard-page">
       <div class="container">
         <div class="dashboard-header">
           <div>
-            <h1>Welcome back, {{ auth.user()?.fullName }}! 👋</h1>
-            <p>Here's what's happening with your properties</p>
+            <h1>{{ 'dashboard.welcome' | t:{ name: auth.user()?.fullName || '' } }}</h1>
+            <p>{{ 'dashboard.subtitle' | t }}</p>
           </div>
           <a routerLink="/property/new" class="btn btn-primary">
-            <span>+</span> List New Property
+            <span>+</span> {{ 'dashboard.listNew' | t }}
           </a>
         </div>
 
@@ -62,32 +63,32 @@ interface Alert {
             <div class="stat-icon">🏠</div>
             <div class="stat-content">
               <div class="stat-value">{{ myPropertiesCount }}</div>
-              <div class="stat-label">My Properties</div>
+              <div class="stat-label">{{ 'dashboard.myProperties' | t }}</div>
             </div>
-            <a routerLink="/my-properties" class="stat-link">View All →</a>
+            <a routerLink="/my-properties" class="stat-link">{{ 'dashboard.viewAll' | t }}</a>
           </div>
           <div class="stat-card card">
             <div class="stat-icon">📅</div>
             <div class="stat-content">
               <div class="stat-value">{{ visits.length }}</div>
-              <div class="stat-label">Site Visits</div>
+              <div class="stat-label">{{ 'dashboard.siteVisits' | t }}</div>
             </div>
-            <a routerLink="/dashboard" class="stat-link">View All →</a>
+            <a routerLink="/dashboard" class="stat-link">{{ 'dashboard.viewAll' | t }}</a>
           </div>
           <div class="stat-card card">
             <div class="stat-icon">👁️</div>
             <div class="stat-content">
               <div class="stat-value">{{ totalViews }}</div>
-              <div class="stat-label">Total Views</div>
+              <div class="stat-label">{{ 'dashboard.totalViews' | t }}</div>
             </div>
           </div>
           <div class="stat-card card">
             <div class="stat-icon">🔔</div>
             <div class="stat-content">
               <div class="stat-value">{{ unreadAlerts }}</div>
-              <div class="stat-label">New Notifications</div>
+              <div class="stat-label">{{ 'dashboard.notifications' | t }}</div>
             </div>
-            <a routerLink="/dashboard" class="stat-link">View →</a>
+            <a routerLink="/dashboard" class="stat-link">{{ 'dashboard.view' | t }}</a>
           </div>
         </div>
 
@@ -178,7 +179,7 @@ interface Alert {
                 </a>
                 <a routerLink="/my-properties" class="action-item">
                   <span class="action-icon">📋</span>
-                  <span>My Properties</span>
+                  <span>{{ 'dashboard.myProperties' | t }}</span>
                 </a>
                 <a routerLink="/dashboard" class="action-item">
                   <span class="action-icon">🔔</span>

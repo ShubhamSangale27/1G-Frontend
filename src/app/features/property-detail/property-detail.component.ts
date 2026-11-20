@@ -12,6 +12,8 @@ import { ToastrService } from 'ngx-toastr';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { PropertyMapComponent } from '../../shared/property-map/property-map.component';
 import { IndianPricePipe } from '../../shared/pipes/indian-price.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import {
   resolvePropertyImageUrl,
   resolveVideoCardPosterUrl,
@@ -34,13 +36,13 @@ interface SiteVisitDto {
 @Component({
   selector: 'app-property-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, SkeletonLoaderComponent, PropertyMapComponent, IndianPricePipe],
+  imports: [CommonModule, RouterLink, FormsModule, SkeletonLoaderComponent, PropertyMapComponent, IndianPricePipe, TranslatePipe],
   template: `
     <div class="property-detail-wrapper">
     <div class="property-detail-page" *ngIf="property && !loading">
       <div class="container">
         <div class="breadcrumb">
-          <a routerLink="/">Home</a> / <a routerLink="/search">Properties</a> / <span>{{ property.title }}</span>
+          <a routerLink="/">{{ 'detail.breadcrumbHome' | t }}</a> / <a routerLink="/search">{{ 'detail.breadcrumbProperties' | t }}</a> / <span>{{ property.title }}</span>
         </div>
         
         <div class="property-header">
@@ -50,42 +52,42 @@ interface SiteVisitDto {
               <span>📍</span> {{ property.address }}, {{ property.city }}{{ property.state ? ', ' + property.state : '' }}
             </div>
             <div class="property-badges">
-              <span class="badge badge-listing">{{ property.listingType }}</span>
+              <span class="badge badge-listing">{{ i18n.listingTypeLabel(property.listingType) }}</span>
               <span class="badge badge-type">{{ propertyTypeLabel }}</span>
-              <span class="badge badge-premium" *ngIf="property.isPremium">⭐ Premium</span>
-              <span class="badge badge-sold-out" *ngIf="property.soldOut">Sold Out</span>
+              <span class="badge badge-premium" *ngIf="property.isPremium">⭐ {{ 'common.premium' | t }}</span>
+              <span class="badge badge-sold-out" *ngIf="property.soldOut">{{ 'common.soldOut' | t }}</span>
             </div>
           </div>
           <div class="header-right">
             <div class="price-section">
               <div class="price">{{ property.price | indianPrice }}</div>
-              <div class="price-label">{{ property.listingType === 'RENT' ? 'per month' : 'total price' }}</div>
+              <div class="price-label">{{ (property.listingType === 'RENT' ? 'detail.perMonth' : 'detail.totalPrice') | t }}</div>
             </div>
             <div class="action-buttons">
-              <p class="sold-out-notice" *ngIf="property.soldOut">This property is sold out. Site visits are not available.</p>
+              <p class="sold-out-notice" *ngIf="property.soldOut">{{ 'detail.soldOutNotice' | t }}</p>
               <ng-container *ngIf="hasActiveSession() && !property.soldOut">
                 <button class="btn btn-primary btn-lg" (click)="bookVisit()" *ngIf="!myVisitForProperty">
-                  📅 Book Site Visit
+                  📅 {{ 'detail.bookVisit' | t }}
                 </button>
                 <div class="existing-visit-actions" *ngIf="myVisitForProperty">
                   <span class="visit-status-badge" [class.assigned]="myVisitForProperty.status === 'ASSIGNED'">{{ visitStatusLabel() }}</span>
                   <span class="visit-scheduled">{{ myVisitForProperty.scheduledAt | date:'medium' }}</span>
                   <div class="visit-otp-box" *ngIf="myVisitForProperty.status === 'ASSIGNED' && visitOtp">
-                    <span class="otp-label">Your visit OTP</span>
+                    <span class="otp-label">{{ 'detail.visitOtp' | t }}</span>
                     <strong class="otp-code">{{ visitOtp }}</strong>
                     <span class="otp-hint">Keep this private. Share it with the agent only in person when the visit is finished.</span>
                     <button type="button" class="btn btn-outline btn-sm" (click)="resendVisitOtp()" [disabled]="resendingOtp">Resend OTP</button>
                   </div>
                   <p class="visit-pending-msg" *ngIf="myVisitForProperty.status === 'PENDING_ASSIGNMENT'">
-                    Waiting for admin to assign an agent. You'll receive an OTP via SMS when assigned.
+                    {{ 'detail.visitPending' | t }}
                   </p>
-                  <button class="btn btn-primary btn-lg" (click)="openReschedule()">📅 Reschedule visit</button>
+                  <button class="btn btn-primary btn-lg" (click)="openReschedule()">📅 {{ 'detail.reschedule' | t }}</button>
                 </div>
               </ng-container>
               <button class="btn btn-outline" (click)="toggleWatchlist()" *ngIf="auth.user()">
-                {{ inWatchlist ? '❤️ Liked' : '🤍 Like' }}
+                {{ inWatchlist ? '❤️' : '🤍' }} {{ (inWatchlist ? 'detail.liked' : 'detail.like') | t }}
               </button>
-              <a routerLink="/login" class="btn btn-primary btn-lg" *ngIf="!hasActiveSession() && !property.soldOut">Login to Book Visit</a>
+              <a routerLink="/login" class="btn btn-primary btn-lg" *ngIf="!hasActiveSession() && !property.soldOut">{{ 'detail.loginToBook' | t }}</a>
             </div>
           </div>
         </div>
@@ -93,8 +95,8 @@ interface SiteVisitDto {
         <div class="gallery-section">
           <ng-container *ngIf="gallerySlides.length">
             <div class="main-image" *ngIf="currentSlide as slide" [class.is-sold-out]="property.soldOut">
-              <span class="verified-badge">✔ Verified</span>
-              <div class="sold-out-sticker" *ngIf="property.soldOut" aria-hidden="true"><span>Sold Out</span></div>
+              <span class="verified-badge">✔ {{ 'common.verified' | t }}</span>
+              <div class="sold-out-sticker" *ngIf="property.soldOut" aria-hidden="true"><span>{{ 'common.soldOut' | t }}</span></div>
               <ng-container [ngSwitch]="slide.kind">
                 <img
                   *ngSwitchCase="'photo'"
@@ -122,7 +124,7 @@ interface SiteVisitDto {
             </div>
           </ng-container>
           <div class="main-image main-image-empty" *ngIf="!gallerySlides.length">
-            <span class="verified-badge">✔ Verified</span>
+            <span class="verified-badge">✔ {{ 'common.verified' | t }}</span>
             <img class="hero-photo hero-media" [src]="heroPlaceholderUrl" [alt]="property.title" />
           </div>
           <div class="thumbnail-grid" *ngIf="gallerySlides.length > 1">
@@ -146,13 +148,13 @@ interface SiteVisitDto {
         <div class="property-content">
           <div class="main-content">
             <section class="info-section card">
-              <h2>Property Details</h2>
+              <h2>{{ 'detail.overview' | t }}</h2>
               <div class="details-grid">
                 <div class="detail-item" *ngIf="property.bedrooms">
                   <div class="detail-icon">🛏️</div>
                   <div>
                     <div class="detail-label">Bedrooms</div>
-                    <div class="detail-value">{{ property.bedrooms }} BHK</div>
+                    <div class="detail-value">{{ property.bedrooms }} {{ 'common.bhk' | t }}</div>
                   </div>
                 </div>
                 <div class="detail-item" *ngIf="property.bathrooms">
@@ -166,13 +168,13 @@ interface SiteVisitDto {
                   <div class="detail-icon">📐</div>
                   <div>
                     <div class="detail-label">Area</div>
-                    <div class="detail-value">{{ property.areaSqft }} sq.ft</div>
+                    <div class="detail-value">{{ property.areaSqft }} {{ 'common.sqft' | t }}</div>
                   </div>
                 </div>
                 <div class="detail-item">
                   <div class="detail-icon">🏠</div>
                   <div>
-                    <div class="detail-label">Type</div>
+                    <div class="detail-label">{{ 'detail.type' | t }}</div>
                     <div class="detail-value">{{ propertyTypeLabel }}</div>
                   </div>
                 </div>
@@ -185,14 +187,14 @@ interface SiteVisitDto {
             </section>
 
             <section class="amenities-section card" *ngIf="property.amenities">
-              <h2>Amenities</h2>
+              <h2>{{ 'detail.amenities' | t }}</h2>
               <div class="amenities-list">
                 <span *ngFor="let amenity of amenitiesList" class="amenity-item">✓ {{ amenity }}</span>
               </div>
             </section>
 
             <section class="location-section card">
-              <h2>Location</h2>
+              <h2>{{ 'detail.location' | t }}</h2>
               <app-property-map
                 mode="view"
                 [latitude]="property.latitude ?? null"
@@ -237,35 +239,35 @@ interface SiteVisitDto {
 
           <aside class="sidebar">
             <div class="contact-card card">
-              <h3>Contact Owner</h3>
+              <h3>{{ 'detail.contactOwner' | t }}</h3>
               <div class="owner-info" *ngIf="property.ownerName">
                 <div class="owner-avatar">{{ property.ownerName.charAt(0) }}</div>
                 <div>
                   <div class="owner-name">{{ property.ownerName }}</div>
-                  <div class="owner-role">Property Owner</div>
+                  <div class="owner-role">{{ 'detail.ownerRole' | t }}</div>
                 </div>
               </div>
               <ng-container *ngIf="hasActiveSession() && !property.soldOut">
                 <button class="btn btn-primary btn-block" (click)="bookVisit()" *ngIf="!myVisitForProperty">
-                  📅 Book Site Visit
+                  📅 {{ 'detail.bookVisit' | t }}
                 </button>
                 <div class="existing-visit-sidebar" *ngIf="myVisitForProperty">
                   <span class="visit-status-badge" [class.assigned]="myVisitForProperty.status === 'ASSIGNED'">{{ visitStatusLabel() }}</span>
                   <p class="visit-scheduled-text">{{ myVisitForProperty.scheduledAt | date:'medium' }}</p>
                   <div class="visit-otp-box" *ngIf="myVisitForProperty.status === 'ASSIGNED' && visitOtp">
-                    <span class="otp-label">Visit OTP</span>
+                    <span class="otp-label">{{ 'detail.visitOtp' | t }}</span>
                     <strong class="otp-code">{{ visitOtp }}</strong>
                     <button type="button" class="btn btn-outline btn-sm btn-block" (click)="resendVisitOtp()" [disabled]="resendingOtp">Resend OTP</button>
                   </div>
-                  <p class="visit-pending-msg" *ngIf="myVisitForProperty.status === 'PENDING_ASSIGNMENT'">Agent assignment pending — OTP will be sent via SMS.</p>
-                  <button class="btn btn-primary btn-block" (click)="openReschedule()">📅 Reschedule</button>
+                  <p class="visit-pending-msg" *ngIf="myVisitForProperty.status === 'PENDING_ASSIGNMENT'">{{ 'detail.visitPending' | t }}</p>
+                  <button class="btn btn-primary btn-block" (click)="openReschedule()">📅 {{ 'detail.reschedule' | t }}</button>
                 </div>
               </ng-container>
-              <a routerLink="/login" class="btn btn-primary btn-block" *ngIf="!hasActiveSession()">Login to Contact</a>
+              <a routerLink="/login" class="btn btn-primary btn-block" *ngIf="!hasActiveSession()">{{ 'detail.loginToContact' | t }}</a>
             </div>
 
             <div class="quick-info card">
-              <h3>Quick Facts</h3>
+              <h3>{{ 'detail.quickFacts' | t }}</h3>
               <div class="quick-facts">
                 <div class="fact-item">
                   <span class="fact-label">Property ID</span>
@@ -320,7 +322,7 @@ interface SiteVisitDto {
           (click)="$event.stopPropagation()"
         >
           <div class="pv-dialog-header">
-            <h3 id="pv-book-title">Book Site Visit</h3>
+            <h3 id="pv-book-title">{{ 'detail.bookVisit' | t }}</h3>
             <button type="button" class="pv-dialog-close" (click)="closeBookVisitDialog()" aria-label="Close">×</button>
           </div>
           <form (ngSubmit)="submitVisit()" class="pv-dialog-body pv-dialog-form">
@@ -1004,6 +1006,7 @@ export class PropertyDetailComponent implements OnInit {
     private api: ApiService,
     private config: ConfigService,
     public auth: AuthService,
+    public i18n: I18nService,
     private toast: ToastrService,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
@@ -1012,11 +1015,7 @@ export class PropertyDetailComponent implements OnInit {
   ) {}
 
   get propertyTypeLabel(): string {
-    const t = this.property?.propertyType;
-    if (!t) return '';
-    if (t === 'APARTMENT' || t === 'FLAT') return 'Flat';
-    if (t === 'PG') return 'PG';
-    return t.charAt(0) + t.slice(1).toLowerCase();
+    return this.i18n.propertyTypeLabel(this.property?.propertyType);
   }
 
   @HostListener('document:keydown.escape')

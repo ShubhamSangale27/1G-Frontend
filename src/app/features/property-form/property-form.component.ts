@@ -18,6 +18,7 @@ import {
   isAllowedVideoUrl,
   upgradeInsecureMediaUrl,
 } from '../../core/utils/image-url.util';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 interface PropertyMediaItem {
   imageUrl: string;
@@ -29,7 +30,7 @@ interface PropertyMediaItem {
 @Component({
   selector: 'app-property-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, PropertyMapComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, PropertyMapComponent, TranslatePipe],
   template: `
     <div class="property-form-page">
       <div class="container">
@@ -43,45 +44,45 @@ interface PropertyMediaItem {
             <h3>Basic Information</h3>
             <div class="form-row">
               <div class="form-group">
-                <label>Property Title *</label>
+                <label>{{ 'form.title' | t }} *</label>
                 <input type="text" formControlName="title" placeholder="e.g., Beautiful 3BHK Apartment in Prime Location" />
-                <span class="error" *ngIf="form.get('title')?.invalid && form.get('title')?.touched">Title is required</span>
+                <span class="error" *ngIf="form.get('title')?.invalid && form.get('title')?.touched">{{ 'common.required' | t }}</span>
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Description</label>
+                <label>{{ 'form.description' | t }}</label>
                 <textarea formControlName="description" rows="5" placeholder="Describe your property in detail..."></textarea>
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Listing Type *</label>
+                <label>{{ 'form.listingType' | t }} *</label>
                 <select formControlName="listingType">
                   <option value="">Select</option>
-                  <option value="SALE">For Sale</option>
-                  <option value="RENT">For Rent</option>
+                  <option value="SALE">{{ 'form.forSale' | t }}</option>
+                  <option value="RENT">{{ 'form.forRent' | t }}</option>
                 </select>
-                <span class="error" *ngIf="form.get('listingType')?.invalid && form.get('listingType')?.touched">Required</span>
+                <span class="error" *ngIf="form.get('listingType')?.invalid && form.get('listingType')?.touched">{{ 'common.required' | t }}</span>
               </div>
               <div class="form-group">
-                <label>Property Type *</label>
+                <label>{{ 'form.propertyType' | t }} *</label>
                 <select formControlName="propertyType">
                   <option value="">Select</option>
-                  <option value="HOUSE">House</option>
-                  <option value="FLAT">Flat</option>
-                  <option value="PG">PG</option>
-                  <option value="LAND">Land</option>
-                  <option value="COMMERCIAL">Commercial</option>
+                  <option value="HOUSE">{{ 'propertyType.HOUSE' | t }}</option>
+                  <option value="FLAT">{{ 'propertyType.FLAT' | t }}</option>
+                  <option value="PG">{{ 'propertyType.PG' | t }}</option>
+                  <option value="LAND">{{ 'propertyType.LAND' | t }}</option>
+                  <option value="COMMERCIAL">{{ 'propertyType.COMMERCIAL' | t }}</option>
                 </select>
-                <span class="error" *ngIf="form.get('propertyType')?.invalid && form.get('propertyType')?.touched">Required</span>
+                <span class="error" *ngIf="form.get('propertyType')?.invalid && form.get('propertyType')?.touched">{{ 'common.required' | t }}</span>
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Price (₹) *</label>
+                <label>{{ 'form.price' | t }} (₹) *</label>
                 <input type="number" formControlName="price" placeholder="Enter price" min="0" />
-                <span class="error" *ngIf="form.get('price')?.invalid && form.get('price')?.touched">Valid price required</span>
+                <span class="error" *ngIf="form.get('price')?.invalid && form.get('price')?.touched">{{ 'common.required' | t }}</span>
               </div>
             </div>
           </div>
@@ -90,9 +91,9 @@ interface PropertyMediaItem {
             <h3>Location Details</h3>
             <div class="form-row">
               <div class="form-group">
-                <label>Address *</label>
+                <label>{{ 'form.address' | t }} *</label>
                 <input type="text" formControlName="address" placeholder="Street address" />
-                <span class="error" *ngIf="form.get('address')?.invalid && form.get('address')?.touched">Address is required</span>
+                <span class="error" *ngIf="form.get('address')?.invalid && form.get('address')?.touched">{{ 'common.required' | t }}</span>
               </div>
             </div>
             <div class="form-row">

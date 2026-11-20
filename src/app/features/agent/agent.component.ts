@@ -6,6 +6,7 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
 import { ToastrService } from 'ngx-toastr';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 interface SiteVisitRow {
   id: number;
@@ -31,14 +32,14 @@ interface AgentVisitsResponse {
 @Component({
   selector: 'app-agent',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, SkeletonLoaderComponent],
+  imports: [CommonModule, RouterLink, FormsModule, SkeletonLoaderComponent, TranslatePipe],
   template: `
     <div class="agent-page">
       <div class="container">
         <div class="agent-header">
           <div>
             <span class="eyebrow">Field Operations</span>
-            <h1>My Site Visits</h1>
+            <h1>{{ 'agent.title' | t }}</h1>
             <p>Upcoming visits first. The customer will tell you their OTP in person — enter it here to complete.</p>
           </div>
         </div>

@@ -6,18 +6,19 @@ import { BlogFilters, BlogPost } from '../../core/models/blog.model';
 import { BlogService } from '../../core/services/blog.service';
 import { resolvePropertyImageUrl } from '../../core/utils/image-url.util';
 import { SkeletonLoaderComponent } from '../../shared/skeleton-loader/skeleton-loader.component';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 @Component({
   selector: 'app-blog-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, SkeletonLoaderComponent],
+  imports: [CommonModule, RouterLink, SkeletonLoaderComponent, TranslatePipe],
   template: `
     <div class="blog-page">
       <section class="blog-hero">
         <div class="blog-wrap hero-inner">
           <div class="hero-copy">
             <span class="eyebrow">Insights & Guides</span>
-            <h1>1Guntha Blog</h1>
+            <h1>{{ 'blog.title' | t }}</h1>
             <p>Expert advice on buying, selling, investing, and navigating India's property market.</p>
           </div>
           <div class="hero-stats">
